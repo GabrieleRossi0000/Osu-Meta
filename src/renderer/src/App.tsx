@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { applyRomanizedFieldLocks } from '@shared/romanization'
 import type { BeatmapMetadata, BeatmapSetSummary, DetectedPath } from '@shared/types'
 import './App.css'
 
@@ -174,6 +175,8 @@ function MetadataForm({
   selected,
   metadata,
   mismatched,
+  lockArtistRomanized,
+  lockTitleRomanized,
   onChange,
   onSave,
   saving,
@@ -182,13 +185,22 @@ function MetadataForm({
   selected: BeatmapSetSummary
   metadata: BeatmapMetadata
   mismatched: boolean
+  lockArtistRomanized: boolean
+  lockTitleRomanized: boolean
   onChange: (metadata: BeatmapMetadata) => void
   onSave: () => void
   saving: boolean
   status: string | null
 }): JSX.Element {
   const update = (key: keyof BeatmapMetadata, value: string): void => {
-    onChange({ ...metadata, [key]: value })
+    const next = { ...metadata, [key]: value }
+    if (key === 'artistUnicode' && lockArtistRomanized) {
+      next.artist = value
+    }
+    if (key === 'titleUnicode' && lockTitleRomanized) {
+      next.title = value
+    }
+    onChange(next)
   }
 
   const hasBg = Boolean(selected.backgroundImageUrl)
@@ -243,13 +255,22 @@ function MetadataForm({
               onChange={(e) => update('artistUnicode', e.target.value)}
             />
           </div>
-          <div className="field">
+          <div className={`field ${lockArtistRomanized ? 'field-locked' : ''}`}>
             <label htmlFor="artist">Romanized artist name</label>
             <input
               id="artist"
               value={metadata.artist}
               onChange={(e) => update('artist', e.target.value)}
+              disabled={lockArtistRomanized}
+              title={
+                lockArtistRomanized
+                  ? 'Already romanized — matches artist name automatically'
+                  : undefined
+              }
             />
+            {lockArtistRomanized && (
+              <span className="field-hint">Matches artist name (already romanized)</span>
+            )}
           </div>
           <div className="field">
             <label htmlFor="titleUnicode">Song title</label>
@@ -259,13 +280,22 @@ function MetadataForm({
               onChange={(e) => update('titleUnicode', e.target.value)}
             />
           </div>
-          <div className="field">
+          <div className={`field ${lockTitleRomanized ? 'field-locked' : ''}`}>
             <label htmlFor="title">Romanized song title</label>
             <input
               id="title"
               value={metadata.title}
               onChange={(e) => update('title', e.target.value)}
+              disabled={lockTitleRomanized}
+              title={
+                lockTitleRomanized
+                  ? 'Already romanized — matches song title automatically'
+                  : undefined
+              }
             />
+            {lockTitleRomanized && (
+              <span className="field-hint">Matches song title (already romanized)</span>
+            )}
           </div>
           <div className="field">
             <label htmlFor="tags">Tags</label>
@@ -306,6 +336,8 @@ function MainScreen({
   const [selected, setSelected] = useState<BeatmapSetSummary | null>(null)
   const [metadata, setMetadata] = useState<BeatmapMetadata>(emptyMetadata())
   const [mismatched, setMismatched] = useState(false)
+  const [lockArtistRomanized, setLockArtistRomanized] = useState(false)
+  const [lockTitleRomanized, setLockTitleRomanized] = useState(false)
   const [loadingList, setLoadingList] = useState(true)
   const [loadingMeta, setLoadingMeta] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -346,6 +378,8 @@ function MainScreen({
       const loaded = await window.api.loadMetadata(set.folderPath)
       setMetadata(loaded.metadata)
       setMismatched(loaded.mismatched)
+      setLockArtistRomanized(loaded.lockArtistRomanized)
+      setLockTitleRomanized(loaded.lockTitleRomanized)
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to load metadata.')
     } finally {
@@ -358,7 +392,11 @@ function MainScreen({
     setSaving(true)
     setStatus(null)
     try {
-      const result = await window.api.saveMetadata(selected.folderPath, metadata)
+      const toSave = applyRomanizedFieldLocks(metadata, {
+        artist: lockArtistRomanized,
+        title: lockTitleRomanized
+      })
+      const result = await window.api.saveMetadata(selected.folderPath, toSave)
       setMismatched(false)
       setStatus(`Updated ${result.updatedFiles} .osu file(s).`)
       await loadBeatmaps()
@@ -438,6 +476,8 @@ function MainScreen({
             selected={selected}
             metadata={metadata}
             mismatched={mismatched}
+            lockArtistRomanized={lockArtistRomanized}
+            lockTitleRomanized={lockTitleRomanized}
             onChange={setMetadata}
             onSave={handleSave}
             saving={saving}

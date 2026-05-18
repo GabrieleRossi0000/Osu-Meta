@@ -21,6 +21,8 @@ export interface LoadedMetadata {
   metadata: BeatmapMetadata
   mismatched: boolean
   diffCount: number
+  lockArtistRomanized: boolean
+  lockTitleRomanized: boolean
 }
 
 export interface AppSettings {

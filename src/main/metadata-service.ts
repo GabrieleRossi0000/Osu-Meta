@@ -1,3 +1,7 @@
+import {
+  applyRomanizedFieldLocks,
+  getRomanizedFieldLocks
+} from '../shared/romanization'
 import type { BeatmapMetadata, LoadedMetadata, SaveMetadataResult } from '../shared/types'
 import { getOsuFilesInSet } from './beatmap-scanner'
 import {
@@ -23,10 +27,15 @@ export function loadSetMetadata(folderPath: string): LoadedMetadata {
     }
   }
 
+  const locks = getRomanizedFieldLocks(primary)
+  const metadata = applyRomanizedFieldLocks(primary, locks)
+
   return {
-    metadata: primary,
+    metadata,
     mismatched,
-    diffCount: osuFiles.length
+    diffCount: osuFiles.length,
+    lockArtistRomanized: locks.artist,
+    lockTitleRomanized: locks.title
   }
 }
 
@@ -39,8 +48,11 @@ export function saveSetMetadata(
     throw new Error('No .osu files found in this beatmap folder.')
   }
 
+  const locks = getRomanizedFieldLocks(metadata)
+  const normalized = applyRomanizedFieldLocks(metadata, locks)
+
   for (const filePath of osuFiles) {
-    updateMetadataInFile(filePath, metadata)
+    updateMetadataInFile(filePath, normalized)
   }
 
   return { updatedFiles: osuFiles.length }
