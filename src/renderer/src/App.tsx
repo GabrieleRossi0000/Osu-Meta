@@ -437,17 +437,22 @@ function MainScreen({
 
       <div className="banner">Close osu! before saving so your changes are not overwritten.</div>
 
+      <div className="search-toolbar">
+        <input
+          className="search-input"
+          placeholder="Search artist, title, folder…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
+        <span className="search-toolbar-count">
+          {loadingList ? 'Scanning…' : `${filtered.length} sets`}
+        </span>
+      </div>
+
       <div className="app-body">
         <div className="panel">
           <div className="panel-header">
             <h2>Beatmaps</h2>
-            <p>{loadingList ? 'Scanning…' : `${filtered.length} sets`}</p>
-            <input
-              className="search-input"
-              placeholder="Search artist, title, folder…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
           </div>
           <ul className="map-list">
             {filtered.length === 0 && !loadingList ? (
