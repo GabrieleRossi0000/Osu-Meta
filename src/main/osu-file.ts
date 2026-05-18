@@ -1,0 +1,172 @@
+import { readFileSync, writeFileSync } from 'fs'
+import iconv from 'iconv-lite'
+import type { BeatmapMetadata } from '../shared/types'
+
+const METADATA_SECTION = '[Metadata]'
+const EDITABLE_KEYS: (keyof BeatmapMetadata)[] = [
+  'artist',
+  'artistUnicode',
+  'title',
+  'titleUnicode',
+  'tags'
+]
+
+const KEY_MAP: Record<keyof BeatmapMetadata, string> = {
+  artist: 'Artist',
+  artistUnicode: 'ArtistUnicode',
+  title: 'Title',
+  titleUnicode: 'TitleUnicode',
+  tags: 'Tags'
+}
+
+const REVERSE_KEY_MAP = Object.fromEntries(
+  Object.entries(KEY_MAP).map(([k, v]) => [v, k])
+) as Record<string, keyof BeatmapMetadata>
+
+export function decodeOsuFile(buffer: Buffer): { text: string; encoding: string } {
+  if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
+    return { text: buffer.subarray(3).toString('utf8'), encoding: 'utf8' }
+  }
+
+  const asUtf8 = buffer.toString('utf8')
+  if (!asUtf8.includes('\uFFFD')) {
+    return { text: asUtf8, encoding: 'utf8' }
+  }
+
+  return { text: iconv.decode(buffer, 'shift_jis'), encoding: 'shift_jis' }
+}
+
+export function encodeOsuFile(text: string, encoding: string): Buffer {
+  if (encoding === 'shift_jis') {
+    return iconv.encode(text, 'shift_jis')
+  }
+  return Buffer.from(text, 'utf8')
+}
+
+function detectLineEnding(text: string): string {
+  return text.includes('\r\n') ? '\r\n' : '\n'
+}
+
+function splitLines(text: string): string[] {
+  return text.split(/\r?\n/)
+}
+
+function joinLines(lines: string[], eol: string): string {
+  return lines.join(eol)
+}
+
+function parseMetadataSection(lines: string[], startIndex: number): Record<string, string> {
+  const values: Record<string, string> = {}
+
+  for (let i = startIndex + 1; i < lines.length; i++) {
+    const line = lines[i]
+    if (line.startsWith('[') && line.endsWith(']')) {
+      break
+    }
+    const colonIndex = line.indexOf(':')
+    if (colonIndex === -1) continue
+    const key = line.slice(0, colonIndex).trim()
+    const value = line.slice(colonIndex + 1).trimStart()
+    values[key] = value
+  }
+
+  return values
+}
+
+function findMetadataSectionStart(lines: string[]): number {
+  return lines.findIndex((line) => line.trim() === METADATA_SECTION)
+}
+
+export function readMetadataFromContent(text: string): BeatmapMetadata {
+  const lines = splitLines(text)
+  const sectionStart = findMetadataSectionStart(lines)
+  if (sectionStart === -1) {
+    return emptyMetadata()
+  }
+
+  const raw = parseMetadataSection(lines, sectionStart)
+  return rawToMetadata(raw)
+}
+
+export function readMetadataFromFile(filePath: string): BeatmapMetadata {
+  const buffer = readFileSync(filePath)
+  const { text } = decodeOsuFile(buffer)
+  return readMetadataFromContent(text)
+}
+
+function emptyMetadata(): BeatmapMetadata {
+  return {
+    artist: '',
+    artistUnicode: '',
+    title: '',
+    titleUnicode: '',
+    tags: ''
+  }
+}
+
+function rawToMetadata(raw: Record<string, string>): BeatmapMetadata {
+  const metadata = emptyMetadata()
+  for (const [osuKey, value] of Object.entries(raw)) {
+    const field = REVERSE_KEY_MAP[osuKey]
+    if (field) {
+      metadata[field] = value
+    }
+  }
+  return metadata
+}
+
+export function metadataEquals(a: BeatmapMetadata, b: BeatmapMetadata): boolean {
+  return EDITABLE_KEYS.every((key) => a[key] === b[key])
+}
+
+export function updateMetadataInFile(
+  filePath: string,
+  metadata: BeatmapMetadata
+): void {
+  const buffer = readFileSync(filePath)
+  const { text, encoding } = decodeOsuFile(buffer)
+  const eol = detectLineEnding(text)
+  const lines = splitLines(text)
+  const sectionStart = findMetadataSectionStart(lines)
+
+  if (sectionStart === -1) {
+    throw new Error(`[Metadata] section not found in ${filePath}`)
+  }
+
+  let sectionEnd = lines.length
+  for (let i = sectionStart + 1; i < lines.length; i++) {
+    if (lines[i].startsWith('[') && lines[i].endsWith(']')) {
+      sectionEnd = i
+      break
+    }
+  }
+
+  const newLines = [...lines]
+  const updatedKeys = new Set<string>()
+
+  for (let i = sectionStart + 1; i < sectionEnd; i++) {
+    const line = lines[i]
+    const colonIndex = line.indexOf(':')
+    if (colonIndex === -1) continue
+
+    const osuKey = line.slice(0, colonIndex).trim()
+    const field = REVERSE_KEY_MAP[osuKey]
+    if (field) {
+      newLines[i] = `${osuKey}:${metadata[field]}`
+      updatedKeys.add(osuKey)
+    }
+  }
+
+  const missingLines = Object.values(KEY_MAP)
+    .filter((osuKey) => !updatedKeys.has(osuKey))
+    .map((osuKey) => {
+      const field = REVERSE_KEY_MAP[osuKey]!
+      return `${osuKey}:${metadata[field]}`
+    })
+
+  if (missingLines.length > 0) {
+    newLines.splice(sectionEnd, 0, ...missingLines)
+  }
+
+  writeFileSync(filePath, encodeOsuFile(joinLines(newLines, eol), encoding))
+}
