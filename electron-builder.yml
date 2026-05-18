@@ -2,6 +2,15 @@ appId: com.osumeta.app
 productName: Osu Meta
 directories:
   buildResources: build
+extraResources:
+  - from: src/main/scripts
+    to: scripts
+    filter:
+      - '**/*'
+  - from: build/icon.ico
+    to: app-icon.ico
+  - from: build/icon.png
+    to: app-icon.png
 files:
   - '!**/.vscode/*'
   - '!src/*'

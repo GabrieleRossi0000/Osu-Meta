@@ -1,4 +1,4 @@
-import type { BeatmapSetSummary } from '../shared/types'
+import type { BeatmapSetFlags, BeatmapSetSummary } from '../shared/types'
 
 export interface DedupCandidate {
   folderPath: string
@@ -9,6 +9,7 @@ export interface DedupCandidate {
   beatmapSetId: number
   lastModifiedMs: number
   hasIdPrefix: boolean
+  flags: BeatmapSetFlags
 }
 
 function groupKey(candidate: DedupCandidate): string {
@@ -53,7 +54,8 @@ export function deduplicateBeatmapSets(candidates: DedupCandidate[]): BeatmapSet
       backgroundImageUrl: winner.backgroundImageUrl,
       beatmapSetId: winner.beatmapSetId > 0 ? winner.beatmapSetId : null,
       lastModifiedAt: winner.lastModifiedMs,
-      hiddenDuplicateCount: hiddenCount
+      hiddenDuplicateCount: hiddenCount,
+      flags: winner.flags
     })
   }
 

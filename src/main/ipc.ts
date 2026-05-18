@@ -1,10 +1,26 @@
-import { dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { existsSync } from 'fs'
 import { scanBeatmapSets, isDirectory } from './beatmap-scanner'
+import { lookupCurrentBeatmap } from './current-beatmap'
 import { loadSetMetadata, saveSetMetadata } from './metadata-service'
+import { isOsuProcessRunning } from './osu-process'
+import { openBeatmapFolder } from './open-beatmap'
+import { checkBeatmapSetOnline } from './beatmap-set-online'
+import { openBeatmapPage } from './open-beatmap-page'
 import { getCandidateSongsPaths, getFirstExistingSongsPath } from './osu-paths'
-import { getSettings, setSongsPath } from './settings'
-import type { BeatmapMetadata } from '../shared/types'
+import {
+  dismissWrongTagHint,
+  getDismissedWrongTagHints,
+  getSettings,
+  isDuplicateWarningIgnored,
+  setDuplicateWarningIgnored,
+  setSongsPath,
+  setSidebarWidth,
+  setTagSectionsExpanded
+} from './settings'
+import type { BeatmapMetadata, BeatmapSetSummary, TagSectionsExpanded } from '../shared/types'
+
+const closeBlockedByRenderer = new WeakMap<BrowserWindow, boolean>()
 
 export function registerIpcHandlers(): void {
   ipcMain.handle('get-settings', () => getSettings())
@@ -40,15 +56,15 @@ export function registerIpcHandlers(): void {
     return path
   })
 
-  ipcMain.handle('scan-beatmaps', () => {
+  ipcMain.handle('scan-beatmaps', (_event, force?: boolean) => {
     const { songsPath } = getSettings()
     if (!songsPath) {
       return []
     }
-    return scanBeatmapSets(songsPath)
+    return scanBeatmapSets(songsPath, Boolean(force))
   })
 
-  ipcMain.handle('load-metadata', (_event, folderPath: string) => {
+  ipcMain.handle('load-metadata', async (_event, folderPath: string) => {
     return loadSetMetadata(folderPath)
   })
 
@@ -58,4 +74,103 @@ export function registerIpcHandlers(): void {
       return saveSetMetadata(folderPath, metadata)
     }
   )
+
+  ipcMain.handle('get-app-version', () => app.getVersion())
+
+  ipcMain.handle('lookup-current-beatmap', (_event, beatmaps?: BeatmapSetSummary[]) => {
+    const { songsPath } = getSettings()
+    if (!songsPath) {
+      return {
+        status: 'songs_folder_not_found',
+        message: 'Songs folder is not configured.',
+        metadataFilename: null,
+        displayTitle: null,
+        folderPath: null
+      }
+    }
+    return lookupCurrentBeatmap(songsPath, beatmaps)
+  })
+
+  ipcMain.handle('open-beatmap-folder', (_event, folderPath: string) => {
+    openBeatmapFolder(folderPath)
+  })
+
+  ipcMain.handle('open-beatmap-page', (_event, beatmapSetId: number) =>
+    openBeatmapPage(beatmapSetId)
+  )
+
+  ipcMain.handle('check-beatmap-set-online', (_event, beatmapSetId: number) =>
+    checkBeatmapSetOnline(beatmapSetId)
+  )
+
+  ipcMain.handle('is-osu-running', () => isOsuProcessRunning())
+
+  ipcMain.handle('is-duplicate-warning-ignored', (_event, folderPath: string) => {
+    return isDuplicateWarningIgnored(folderPath)
+  })
+
+  ipcMain.handle(
+    'set-duplicate-warning-ignored',
+    (_event, folderPath: string, ignored: boolean) => {
+      setDuplicateWarningIgnored(folderPath, ignored)
+    }
+  )
+
+  ipcMain.handle('get-dismissed-wrong-tag-hints', (_event, folderPath: string) => {
+    return getDismissedWrongTagHints(folderPath)
+  })
+
+  ipcMain.handle('dismiss-wrong-tag-hint', (_event, folderPath: string, ruleId: string) => {
+    dismissWrongTagHint(folderPath, ruleId)
+  })
+
+  ipcMain.handle('set-tag-sections-expanded', (_event, value: TagSectionsExpanded) => {
+    setTagSectionsExpanded(value)
+  })
+
+  ipcMain.handle('set-sidebar-width', (_event, width: number) => {
+    setSidebarWidth(width)
+  })
+
+  ipcMain.handle('set-close-blocked', (event, blocked: boolean) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win) closeBlockedByRenderer.set(win, blocked)
+  })
+
+  ipcMain.handle('confirm-app-close', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    closeBlockedByRenderer.set(win, false)
+    win.close()
+  })
+
+  ipcMain.on('window-minimize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize()
+  })
+
+  ipcMain.on('window-toggle-maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    if (win.isMaximized()) win.unmaximize()
+    else win.maximize()
+  })
+
+  ipcMain.on('window-close', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    if (closeBlockedByRenderer.get(win)) {
+      win.webContents.send('request-close-confirm')
+      return
+    }
+    win.close()
+  })
+
+  app.on('browser-window-created', (_event, window) => {
+    window.on('close', (e) => {
+      if (closeBlockedByRenderer.get(window)) {
+        e.preventDefault()
+        window.webContents.send('request-close-confirm')
+      }
+    })
+  })
 }

@@ -1,14 +1,57 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { applyRomanizedFieldLocks, getRomanizedFieldLocks, isAlreadyRomanized } from '@shared/romanization'
-import type { BeatmapMetadata, BeatmapSetSummary, DetectedPath } from '@shared/types'
-import './App.css'
+import {
+  Alert,
+  AppShell,
+  Burger,
+  Button,
+  Center,
+  Container,
+  CSSVariablesResolver,
+  Group,
+  Loader,
+  MantineProvider,
+  Modal,
+  Paper,
+  ScrollArea,
+  Stack,
+  Text,
+  useMantineTheme
+} from '@mantine/core'
+import { IconAlertTriangle } from '@tabler/icons-react'
+import { useDisclosure } from '@mantine/hooks'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { filterBeatmaps } from '@shared/filter-beatmaps'
+import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
+import { matchBeatmapByDisplayTitle } from '@shared/match-display-name'
+import { metadataEquals } from '@shared/metadata-utils'
+import { applyRomanizedFieldLocks, getRomanizedFieldLocks } from '@shared/romanization'
+import type {
+  BeatmapDifficultySummary,
+  BeatmapMetadata,
+  BeatmapSetSummary,
+  DetectedPath,
+  TagSectionsExpanded
+} from '@shared/types'
+import BeatmapsSidebar from './components/beatmaps/BeatmapsSidebar'
+import NoBeatmapSelected from './components/common/NoBeatmapSelected'
+import MetadataEditor from './components/metadata/MetadataEditor'
+import ImportMetadataModal, {
+  applyMetadataImport,
+  type ImportMetadataMode
+} from './components/metadata/ImportMetadataModal'
+import SettingsButton from './components/settings/SettingsButton'
+import WindowBar from './components/window/WindowBar'
+import { theme } from './theme/Theme'
+import '@mantine/core/styles.css'
+import './theme/global.scss'
 
-function formatLastModified(ms: number): string {
-  return new Date(ms).toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short'
-  })
-}
+const cssVarResolver: CSSVariablesResolver = () => ({
+  variables: {},
+  light: {},
+  dark: {
+    '--mantine-color-text': '#fff',
+    '--mantine-color-dimmed': '#9e9e9e'
+  }
+})
 
 const emptyMetadata = (): BeatmapMetadata => ({
   artist: '',
@@ -18,59 +61,14 @@ const emptyMetadata = (): BeatmapMetadata => ({
   tags: ''
 })
 
-function MapListItem({
-  set,
-  active,
-  onSelect
-}: {
-  set: BeatmapSetSummary
-  active: boolean
-  onSelect: () => void
-}): JSX.Element {
-  const hasBg = Boolean(set.backgroundImageUrl)
-
-  return (
-    <li>
-      <button
-        type="button"
-        className={`map-item ${active ? 'active' : ''} ${hasBg ? '' : 'map-item--no-bg'}`}
-        onClick={onSelect}
-      >
-        {hasBg && (
-          <img
-            className="map-item-bg"
-            src={set.backgroundImageUrl!}
-            alt=""
-            loading="lazy"
-            draggable={false}
-          />
-        )}
-        <span className="map-item-overlay" aria-hidden />
-        <span className="map-item-content">
-          <span className="map-item-title">{set.displayName}</span>
-          <span className="map-item-sub">
-            {set.diffCount} diff{set.diffCount === 1 ? '' : 's'}
-            {set.hiddenDuplicateCount > 0
-              ? ` · ${set.hiddenDuplicateCount} older cop${set.hiddenDuplicateCount === 1 ? 'y' : 'ies'} hidden`
-              : ''}
-          </span>
-        </span>
-      </button>
-    </li>
-  )
-}
-
-function SetupScreen({
-  onReady
-}: {
-  onReady: (path: string) => void
-}): JSX.Element {
+function SetupScreen({ onReady }: { onReady: (path: string) => void }): JSX.Element {
+  const theme = useMantineTheme()
   const [detected, setDetected] = useState<DetectedPath[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    window.api.detectSongsPaths().then(setDetected)
+    void window.api.detectSongsPaths().then(setDetected)
   }, [])
 
   const useDetected = async (): Promise<void> => {
@@ -105,248 +103,105 @@ function SetupScreen({
   }
 
   return (
-    <div className="app">
-      <div className="setup-screen">
-        <div className="app-brand" style={{ marginBottom: '1.25rem' }}>
-          <span className="app-brand-mark" />
-          <h1 style={{ margin: 0, fontSize: '1.25rem' }}>Osu Meta</h1>
-        </div>
-        <p>
-          Select your osu! <strong>Songs</strong> folder. The app lists beatmap sets and updates
-          metadata across all difficulties at once.
-        </p>
-
-        <ul className="detected-list">
-          {detected.map((item) => (
-            <li key={item.path}>
-              <span className={item.exists ? 'exists' : 'missing'}>
-                {item.exists ? 'Found' : 'Not found'} — {item.label}
-              </span>
-              <div className="settings-path" style={{ maxWidth: 'none', marginTop: '0.25rem' }}>
-                {item.path}
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        {error && <p className="status-text error">{error}</p>}
-
-        <div className="setup-actions">
-          <button className="btn btn-primary" type="button" onClick={useDetected} disabled={loading}>
-            Use detected folder
-          </button>
-          <button className="btn" type="button" onClick={pickFolder} disabled={loading}>
-            Choose folder…
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ConfirmModal({
-  message,
-  onCancel,
-  onConfirm
-}: {
-  message: string
-  onCancel: () => void
-  onConfirm: () => void
-}): JSX.Element {
-  return (
-    <div className="modal-backdrop">
-      <div className="modal">
-        <h3>Unify mismatched metadata?</h3>
-        <p>{message}</p>
-        <div className="modal-actions">
-          <button className="btn btn-ghost" type="button" onClick={onCancel}>
-            Cancel
-          </button>
-          <button className="btn btn-primary" type="button" onClick={onConfirm}>
-            Save anyway
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function MetadataForm({
-  selected,
-  metadata,
-  mismatched,
-  onChange,
-  onSave,
-  saving,
-  status
-}: {
-  selected: BeatmapSetSummary
-  metadata: BeatmapMetadata
-  mismatched: boolean
-  onChange: (metadata: BeatmapMetadata) => void
-  onSave: () => void
-  saving: boolean
-  status: string | null
-}): JSX.Element {
-  const { artist: lockArtistRomanized, title: lockTitleRomanized } = useMemo(
-    () => getRomanizedFieldLocks(metadata),
-    [metadata.artistUnicode, metadata.titleUnicode]
-  )
-
-  const update = (key: keyof BeatmapMetadata, value: string): void => {
-    const next = { ...metadata, [key]: value }
-    if (key === 'artistUnicode' && isAlreadyRomanized(value)) {
-      next.artist = value
-    }
-    if (key === 'titleUnicode' && isAlreadyRomanized(value)) {
-      next.title = value
-    }
-    onChange(next)
-  }
-
-  const hasBg = Boolean(selected.backgroundImageUrl)
-
-  return (
-    <div className="editor-panel">
-      <div className={`editor-hero ${hasBg ? '' : 'editor-hero--placeholder'}`}>
-        {hasBg && (
-          <img
-            className="editor-hero-bg"
-            src={selected.backgroundImageUrl!}
-            alt=""
-            draggable={false}
-          />
-        )}
-        <span className="editor-hero-overlay" aria-hidden />
-        <div className="editor-hero-content">
-          <h2>{selected.displayName}</h2>
-          <p>
-            {selected.folderName} · {selected.diffCount} difficult
-            {selected.diffCount === 1 ? 'y' : 'ies'}
-            {selected.lastModifiedAt > 0 ? ` · Updated ${formatLastModified(selected.lastModifiedAt)}` : ''}
-          </p>
-          {selected.hiddenDuplicateCount > 0 && (
-            <p className="duplicate-note">
-              Showing the newest of {selected.hiddenDuplicateCount + 1} copies on disk (BeatmapSetID{' '}
-              {selected.beatmapSetId ?? 'unknown'}). Older duplicate folders are hidden.
-            </p>
+    <Center h="100vh" p="md" style={{ paddingTop: 'var(--mv-window-bar-height)' }}>
+      <Paper p="xl" radius="lg" bg={theme.colors.dark[6]} maw={520} w="100%" className="mv-paper-surface">
+        <Stack gap="md">
+          <Text fw={700} size="xl">
+            Osu Meta
+          </Text>
+          <Text c="dimmed" size="sm">
+            Select your osu! <strong>Songs</strong> folder. The app lists beatmap sets and updates
+            metadata across all difficulties at once.
+          </Text>
+          <Stack gap="xs">
+            {detected.map((item) => (
+              <Paper key={item.path} p="sm" radius="sm" bg={theme.colors.dark[5]}>
+                <Text size="sm" c={item.exists ? 'green' : 'dimmed'} fw={500}>
+                  {item.exists ? 'Found' : 'Not found'} — {item.label}
+                </Text>
+                <Text size="xs" c="dimmed" style={{ wordBreak: 'break-all' }}>
+                  {item.path}
+                </Text>
+              </Paper>
+            ))}
+          </Stack>
+          {error && (
+            <Text size="sm" c="red">
+              {error}
+            </Text>
           )}
-        </div>
-      </div>
-
-      <div className="editor-body">
-        {mismatched && (
-          <p className="alert">
-            Difficulties had mismatched metadata. Saving will unify all .osu files in this set.
-          </p>
-        )}
-
-        <form
-          className="metadata-form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            onSave()
-          }}
-        >
-          <div className="field">
-            <label htmlFor="artistUnicode">Artist name</label>
-            <input
-              id="artistUnicode"
-              value={metadata.artistUnicode}
-              onChange={(e) => update('artistUnicode', e.target.value)}
-            />
-          </div>
-          <div className={`field ${lockArtistRomanized ? 'field-locked' : ''}`}>
-            <label htmlFor="artist">Romanized artist name</label>
-            <input
-              id="artist"
-              value={metadata.artist}
-              onChange={(e) => update('artist', e.target.value)}
-              disabled={lockArtistRomanized}
-              title={
-                lockArtistRomanized
-                  ? 'Already romanized — matches artist name automatically'
-                  : undefined
-              }
-            />
-            {lockArtistRomanized && (
-              <span className="field-hint">Matches artist name (already romanized)</span>
-            )}
-          </div>
-          <div className="field">
-            <label htmlFor="titleUnicode">Song title</label>
-            <input
-              id="titleUnicode"
-              value={metadata.titleUnicode}
-              onChange={(e) => update('titleUnicode', e.target.value)}
-            />
-          </div>
-          <div className={`field ${lockTitleRomanized ? 'field-locked' : ''}`}>
-            <label htmlFor="title">Romanized song title</label>
-            <input
-              id="title"
-              value={metadata.title}
-              onChange={(e) => update('title', e.target.value)}
-              disabled={lockTitleRomanized}
-              title={
-                lockTitleRomanized
-                  ? 'Already romanized — matches song title automatically'
-                  : undefined
-              }
-            />
-            {lockTitleRomanized && (
-              <span className="field-hint">Matches song title (already romanized)</span>
-            )}
-          </div>
-          <div className="field">
-            <label htmlFor="tags">Tags</label>
-            <textarea
-              id="tags"
-              value={metadata.tags}
-              onChange={(e) => update('tags', e.target.value)}
-            />
-          </div>
-
-          <div className="form-actions">
-            <button className="btn btn-primary" type="submit" disabled={saving}>
-              {saving ? 'Saving…' : 'Save to all difficulties'}
-            </button>
-            {status && (
-              <span
-                className={`status-text ${status.startsWith('Updated') ? 'success' : status.startsWith('Failed') ? 'error' : ''}`}
-              >
-                {status}
-              </span>
-            )}
-          </div>
-        </form>
-      </div>
-    </div>
+          <Group>
+            <Button onClick={() => void useDetected()} loading={loading}>
+              Use detected folder
+            </Button>
+            <Button variant="default" onClick={() => void pickFolder()} loading={loading}>
+              Choose folder…
+            </Button>
+          </Group>
+        </Stack>
+      </Paper>
+    </Center>
   )
 }
 
 function MainScreen({
   songsPath,
-  onChangeFolder
+  onSongsPathChange
 }: {
   songsPath: string
-  onChangeFolder: () => void
+  onSongsPathChange: (path: string) => void
 }): JSX.Element {
+  const theme = useMantineTheme()
+  const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true)
   const [beatmaps, setBeatmaps] = useState<BeatmapSetSummary[]>([])
-  const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<BeatmapSetSummary | null>(null)
   const [metadata, setMetadata] = useState<BeatmapMetadata>(emptyMetadata())
+  const [savedMetadata, setSavedMetadata] = useState<BeatmapMetadata | null>(null)
+  const [difficulties, setDifficulties] = useState<BeatmapDifficultySummary[]>([])
+  const [difficultyVersions, setDifficultyVersions] = useState<string[]>([])
+  const [creator, setCreator] = useState('')
+  const [source, setSource] = useState('')
+  const [isFeaturedArtist, setIsFeaturedArtist] = useState(false)
+  const [isOnOsuWebsite, setIsOnOsuWebsite] = useState(false)
   const [mismatched, setMismatched] = useState(false)
+  const [tagSectionsExpanded, setTagSectionsExpanded] = useState<TagSectionsExpanded>({
+    featured: true,
+    source: true,
+    guest: true,
+    guild: true,
+    collab: true,
+    wrongTags: true
+  })
+  const [sidebarWidth, setSidebarWidth] = useState(256)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importingMetadata, setImportingMetadata] = useState(false)
+  const [highlightedFolderPath, setHighlightedFolderPath] = useState<string | null>(null)
+  const [osuRunning, setOsuRunning] = useState(false)
+  const [showUnsavedSwitch, setShowUnsavedSwitch] = useState(false)
+  const [showUnsavedClose, setShowUnsavedClose] = useState(false)
+  const [pendingSelect, setPendingSelect] = useState<BeatmapSetSummary | null>(null)
   const [loadingList, setLoadingList] = useState(true)
   const [loadingMeta, setLoadingMeta] = useState(false)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState<string | null>(null)
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [showSaveSafety, setShowSaveSafety] = useState(false)
+  const [showMismatchConfirm, setShowMismatchConfirm] = useState(false)
+  const [listSearch, setListSearch] = useState('')
+  const [fetchingCurrent, setFetchingCurrent] = useState(false)
+  const [fetchNotice, setFetchNotice] = useState<string | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
-  const loadBeatmaps = useCallback(async () => {
+  const filteredBeatmaps = useMemo(() => filterBeatmaps(beatmaps, listSearch), [beatmaps, listSearch])
+
+  const isDirty = useMemo(
+    () => savedMetadata !== null && !metadataEquals(metadata, savedMetadata),
+    [metadata, savedMetadata]
+  )
+
+  const loadBeatmaps = useCallback(async (force = false): Promise<void> => {
     setLoadingList(true)
     try {
-      const sets = await window.api.scanBeatmaps()
+      const sets = await window.api.scanBeatmaps(force)
       setBeatmaps(sets)
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to scan beatmaps.')
@@ -356,35 +211,92 @@ function MainScreen({
   }, [])
 
   useEffect(() => {
-    loadBeatmaps()
+    void loadBeatmaps()
   }, [loadBeatmaps, songsPath])
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return beatmaps
-    return beatmaps.filter(
-      (b) =>
-        b.displayName.toLowerCase().includes(q) ||
-        b.folderName.toLowerCase().includes(q)
-    )
-  }, [beatmaps, search])
+  useEffect(() => {
+    void window.api.getSettings().then((settings) => {
+      setTagSectionsExpanded(settings.tagSectionsExpanded)
+      setSidebarWidth(settings.sidebarWidth)
+    })
+  }, [])
 
-  const selectBeatmap = async (set: BeatmapSetSummary): Promise<void> => {
+  useEffect(() => {
+    const poll = (): void => {
+      void window.api.isOsuRunning().then(setOsuRunning)
+    }
+    poll()
+    const interval = setInterval(poll, 3000)
+    return () => clearInterval(interval)
+  }, [])
+
+  useEffect(() => {
+    void window.api.setCloseBlocked(isDirty)
+  }, [isDirty])
+
+  useEffect(() => {
+    return window.api.onRequestCloseConfirm(() => {
+      if (isDirty) setShowUnsavedClose(true)
+      else void window.api.confirmAppClose()
+    })
+  }, [isDirty])
+
+  useEffect(() => {
+    if (!selected) {
+      setIsOnOsuWebsite(false)
+      return
+    }
+    const setId = resolveBeatmapSetId(selected)
+    if (setId == null) {
+      setIsOnOsuWebsite(false)
+      return
+    }
+
+    let cancelled = false
+    void window.api.checkBeatmapSetOnline(setId).then((online) => {
+      if (!cancelled) setIsOnOsuWebsite(online)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [selected?.folderPath, selected?.beatmapSetId, selected?.folderName])
+
+  const selectBeatmap = useCallback(async (set: BeatmapSetSummary): Promise<void> => {
     setSelected(set)
+    setIsOnOsuWebsite(false)
     setStatus(null)
     setLoadingMeta(true)
     try {
       const loaded = await window.api.loadMetadata(set.folderPath)
       setMetadata(loaded.metadata)
+      setSavedMetadata(loaded.metadata)
+      setDifficulties(loaded.difficulties)
+      setDifficultyVersions(loaded.difficultyVersions)
+      setCreator(loaded.creator)
+      setSource(loaded.source)
+      setIsFeaturedArtist(loaded.isFeaturedArtist)
+      setIsOnOsuWebsite(loaded.isOnOsuWebsite)
       setMismatched(loaded.mismatched)
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to load metadata.')
     } finally {
       setLoadingMeta(false)
     }
-  }
+  }, [])
 
-  const performSave = async (): Promise<void> => {
+  const trySelectBeatmap = useCallback(
+    (set: BeatmapSetSummary): void => {
+      if (isDirty) {
+        setPendingSelect(set)
+        setShowUnsavedSwitch(true)
+        return
+      }
+      void selectBeatmap(set)
+    },
+    [isDirty, selectBeatmap]
+  )
+
+  const performSave = useCallback(async (): Promise<void> => {
     if (!selected) return
     setSaving(true)
     setStatus(null)
@@ -392,6 +304,7 @@ function MainScreen({
       const toSave = applyRomanizedFieldLocks(metadata, getRomanizedFieldLocks(metadata))
       const result = await window.api.saveMetadata(selected.folderPath, toSave)
       setMismatched(false)
+      setSavedMetadata(toSave)
       setStatus(`Updated ${result.updatedFiles} .osu file(s).`)
       await loadBeatmaps()
       const refreshed = (await window.api.scanBeatmaps()).find(
@@ -402,104 +315,375 @@ function MainScreen({
       setStatus(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
       setSaving(false)
-      setShowConfirm(false)
+      setShowMismatchConfirm(false)
+      setShowSaveSafety(false)
     }
-  }
+  }, [selected, metadata, loadBeatmaps])
 
-  const handleSave = (): void => {
+  const handleSave = useCallback((): void => {
     if (!selected) return
+    setShowSaveSafety(true)
+  }, [selected])
+
+  const confirmSaveSafety = useCallback((): void => {
+    setShowSaveSafety(false)
     if (mismatched) {
-      setShowConfirm(true)
+      setShowMismatchConfirm(true)
       return
     }
     void performSave()
+  }, [mismatched, performSave])
+
+  const fetchCurrentMap = useCallback(async (): Promise<void> => {
+    setFetchingCurrent(true)
+    setFetchNotice(null)
+    try {
+      const result = await window.api.lookupCurrentBeatmap(beatmaps)
+
+      const selectByFolder = (folderPath: string): boolean => {
+        const found = beatmaps.find(
+          (b) => b.folderPath.toLowerCase() === folderPath.toLowerCase()
+        )
+        if (!found) return false
+        setHighlightedFolderPath(found.folderPath)
+        window.setTimeout(() => setHighlightedFolderPath(null), 2500)
+        void selectBeatmap(found)
+        setFetchNotice(null)
+        return true
+      }
+
+      if (result.status === 'folder_found' && result.folderPath) {
+        if (selectByFolder(result.folderPath)) return
+        setFetchNotice(
+          `Found "${result.metadataFilename ?? 'map'}" in osu!, but it is not in your scanned Songs list.`
+        )
+        return
+      }
+
+      if (result.displayTitle) {
+        const found = matchBeatmapByDisplayTitle(beatmaps, result.displayTitle)
+        if (found) {
+          setHighlightedFolderPath(found.folderPath)
+          window.setTimeout(() => setHighlightedFolderPath(null), 2500)
+          await selectBeatmap(found)
+          setFetchNotice(null)
+          return
+        }
+        setFetchNotice(
+          `osu! shows "${result.displayTitle}", but no matching map was found in your Songs list.`
+        )
+        return
+      }
+
+      setFetchNotice(result.message)
+    } catch (err) {
+      setFetchNotice(err instanceof Error ? err.message : 'Failed to detect current map.')
+    } finally {
+      setFetchingCurrent(false)
+    }
+  }, [beatmaps, selectBeatmap])
+
+  const moveListSelection = useCallback(
+    (direction: -1 | 1): void => {
+      if (filteredBeatmaps.length === 0) return
+      const currentIndex = selected
+        ? filteredBeatmaps.findIndex((b) => b.folderPath === selected.folderPath)
+        : -1
+      let nextIndex =
+        currentIndex < 0
+          ? direction > 0
+            ? 0
+            : filteredBeatmaps.length - 1
+          : currentIndex + direction
+      if (nextIndex < 0) nextIndex = filteredBeatmaps.length - 1
+      if (nextIndex >= filteredBeatmaps.length) nextIndex = 0
+      trySelectBeatmap(filteredBeatmaps[nextIndex])
+    },
+    [filteredBeatmaps, selected, trySelectBeatmap]
+  )
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent): void => {
+      const target = event.target
+      const inField =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable)
+
+      if (event.ctrlKey && event.key.toLowerCase() === 's') {
+        event.preventDefault()
+        handleSave()
+        return
+      }
+
+      if (event.ctrlKey && event.key.toLowerCase() === 'f') {
+        event.preventDefault()
+        searchInputRef.current?.focus()
+        searchInputRef.current?.select()
+        return
+      }
+
+      if (inField) return
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        moveListSelection(1)
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        moveListSelection(-1)
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [handleSave, moveListSelection])
+
+  const openSelectedFolder = (): void => {
+    if (!selected) return
+    void window.api.openBeatmapFolder(selected.folderPath).catch((err) => {
+      setStatus(err instanceof Error ? err.message : 'Failed to open folder.')
+    })
+  }
+
+  const openSelectedBeatmapPage = (): void => {
+    if (!selected) return
+    const setId = resolveBeatmapSetId(selected)
+    if (setId == null) return
+    void window.api.openBeatmapPage(setId).catch((err) => {
+      setStatus(err instanceof Error ? err.message : 'Failed to open beatmap page.')
+    })
+  }
+
+  const handleTagSectionsExpandedChange = (value: TagSectionsExpanded): void => {
+    setTagSectionsExpanded(value)
+    void window.api.setTagSectionsExpanded(value)
+  }
+
+  const handleImportMetadata = useCallback(
+    async (sourceFolderPath: string, mode: ImportMetadataMode): Promise<void> => {
+      setImportingMetadata(true)
+      try {
+        const loaded = await window.api.loadMetadata(sourceFolderPath)
+        setMetadata((current) => applyMetadataImport(current, loaded.metadata, mode))
+        setShowImportModal(false)
+        const labels: Record<ImportMetadataMode, string> = {
+          full: 'Imported full metadata.',
+          tags: 'Imported tags.',
+          song: 'Imported song metadata.'
+        }
+        setStatus(labels[mode])
+      } catch (err) {
+        setStatus(err instanceof Error ? err.message : 'Failed to import metadata.')
+      } finally {
+        setImportingMetadata(false)
+      }
+    },
+    []
+  )
+
+  const discardUnsavedAndContinue = (): void => {
+    setShowUnsavedSwitch(false)
+    if (pendingSelect) {
+      void selectBeatmap(pendingSelect)
+      setPendingSelect(null)
+    }
   }
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="app-brand">
-          <span className="app-brand-mark" />
-          <h1>Osu Meta</h1>
-        </div>
-        <div className="app-header-actions">
-          <span className="settings-path" title={songsPath}>
-            {songsPath}
-          </span>
-          <button className="btn btn-ghost" type="button" onClick={onChangeFolder}>
-            Change folder
-          </button>
-          <button className="btn btn-ghost" type="button" onClick={loadBeatmaps} disabled={loadingList}>
-            Rescan
-          </button>
-        </div>
-      </header>
+    <>
+      <AppShell
+        header={{ height: 92 }}
+        navbar={{
+          width: sidebarWidth,
+          breakpoint: 'xs',
+          collapsed: { desktop: !desktopOpened }
+        }}
+        padding={0}
+      >
+        <AppShell.Header
+          style={{
+            marginTop: 'var(--mv-window-bar-height)',
+            height: 60,
+            fontFamily: theme.headings.fontFamily,
+            background: theme.colors.dark[8],
+            viewTransitionName: 'app-header'
+          }}
+        >
+          <Group h={60} px="md" wrap="nowrap">
+            <Burger opened={desktopOpened} onClick={toggleDesktop} size="sm" />
+            <Text fw={600} size="sm" style={{ flex: 1, minWidth: 0 }}>
+              Metadata
+            </Text>
+            <SettingsButton songsPath={songsPath} onSongsPathChange={onSongsPathChange} />
+          </Group>
+        </AppShell.Header>
 
-      <div className="banner">Close osu! before saving so your changes are not overwritten.</div>
-
-      <div className="search-toolbar">
-        <input
-          className="search-input"
-          placeholder="Search artist, title, folder…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-        <span className="search-toolbar-count">
-          {loadingList ? 'Scanning…' : `${filtered.length} sets`}
-        </span>
-      </div>
-
-      <div className="app-body">
-        <div className="panel">
-          <div className="panel-header">
-            <h2>Beatmaps</h2>
-          </div>
-          <ul className="map-list">
-            {filtered.length === 0 && !loadingList ? (
-              <li className="map-list-empty">No beatmaps match your search.</li>
-            ) : (
-              filtered.map((set) => (
-                <MapListItem
-                  key={set.folderPath}
-                  set={set}
-                  active={selected?.folderPath === set.folderPath}
-                  onSelect={() => void selectBeatmap(set)}
-                />
-              ))
-            )}
-          </ul>
-        </div>
-
-        {selected && !loadingMeta ? (
-          <MetadataForm
-            selected={selected}
-            metadata={metadata}
-            mismatched={mismatched}
-            onChange={setMetadata}
-            onSave={handleSave}
-            saving={saving}
-            status={status}
+        <AppShell.Navbar style={{ viewTransitionName: 'app-sidebar' }}>
+          <BeatmapsSidebar
+            beatmaps={beatmaps}
+            loading={loadingList}
+            songsConfigured={Boolean(songsPath)}
+            selectedFolderPath={selected?.folderPath ?? null}
+            highlightedFolderPath={highlightedFolderPath}
+            search={listSearch}
+            onSearchChange={setListSearch}
+            searchInputRef={searchInputRef}
+            onSelect={trySelectBeatmap}
+            onRefresh={(force) => void loadBeatmaps(force)}
+            onFetchCurrent={() => void fetchCurrentMap()}
+            fetchingCurrent={fetchingCurrent}
+            fetchNotice={fetchNotice}
           />
-        ) : (
-          <div className="editor-panel editor-empty">
-            <span className="editor-empty-icon">♪</span>
-            <p>
-              {loadingMeta
-                ? 'Loading metadata…'
-                : 'Select a beatmap set to edit artist, title, and tags.'}
-            </p>
-          </div>
-        )}
-      </div>
+        </AppShell.Navbar>
 
-      {showConfirm && (
-        <ConfirmModal
-          message="Difficulties in this set have different metadata values. Saving will apply your edits to every .osu file."
-          onCancel={() => setShowConfirm(false)}
-          onConfirm={() => void performSave()}
+        <AppShell.Main className="mv-app-main">
+          <ScrollArea
+            offsetScrollbars
+            type="always"
+            h="calc(100vh - var(--app-shell-header-offset, 0rem) + var(--app-shell-padding))"
+          >
+            <Container p="sm" fluid maw={720}>
+              {selected ? (
+                <div key={selected.folderPath} className="mv-route-outlet-wrap">
+                <MetadataEditor
+                  selected={selected}
+                  metadata={metadata}
+                  difficulties={difficulties}
+                  difficultyVersions={difficultyVersions}
+                  creator={creator}
+                  source={source}
+                  isFeaturedArtist={isFeaturedArtist}
+                  isOnOsuWebsite={isOnOsuWebsite}
+                  mismatched={mismatched}
+                  isDirty={isDirty}
+                  loading={loadingMeta}
+                  saving={saving}
+                  status={status}
+                  tagSectionsExpanded={tagSectionsExpanded}
+                  onTagSectionsExpandedChange={handleTagSectionsExpandedChange}
+                  onChange={setMetadata}
+                  onSave={handleSave}
+                  onOpenFolder={openSelectedFolder}
+                  onOpenBeatmapPage={openSelectedBeatmapPage}
+                  onOpenImportModal={() => setShowImportModal(true)}
+                />
+                </div>
+              ) : (
+                <NoBeatmapSelected loading={loadingMeta} />
+              )}
+            </Container>
+          </ScrollArea>
+        </AppShell.Main>
+      </AppShell>
+
+      {selected && (
+        <ImportMetadataModal
+          opened={showImportModal}
+          onClose={() => setShowImportModal(false)}
+          beatmaps={beatmaps}
+          currentFolderPath={selected.folderPath}
+          importing={importingMetadata}
+          onImport={(sourceFolderPath, mode) => void handleImportMetadata(sourceFolderPath, mode)}
         />
       )}
-    </div>
+
+      <Modal
+        opened={showSaveSafety}
+        onClose={() => setShowSaveSafety(false)}
+        title="Before you save"
+        size="md"
+        centered
+      >
+        <Stack gap="md">
+          <Alert
+            icon={<IconAlertTriangle />}
+            color={osuRunning ? 'red' : 'yellow'}
+            variant="light"
+          >
+            {osuRunning
+              ? 'osu! is running. Close the editor or leave song select before saving, or osu! may overwrite your changes on disk.'
+              : "Make sure the map is not open in the editor and that you're on song select before saving. If the map is still open in the editor, osu! may overwrite your changes."}
+          </Alert>
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={() => setShowSaveSafety(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmSaveSafety}>Save</Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Modal
+        opened={showUnsavedSwitch}
+        onClose={() => {
+          setShowUnsavedSwitch(false)
+          setPendingSelect(null)
+        }}
+        title="Unsaved changes"
+        centered
+      >
+        <Text size="sm" mb="md">
+          You have unsaved metadata edits. Discard them and open the other mapset?
+        </Text>
+        <Group justify="flex-end" gap="sm">
+          <Button
+            variant="default"
+            onClick={() => {
+              setShowUnsavedSwitch(false)
+              setPendingSelect(null)
+            }}
+          >
+            Cancel
+          </Button>
+          <Button color="red" onClick={discardUnsavedAndContinue}>
+            Discard changes
+          </Button>
+        </Group>
+      </Modal>
+
+      <Modal
+        opened={showUnsavedClose}
+        onClose={() => setShowUnsavedClose(false)}
+        title="Unsaved changes"
+        centered
+      >
+        <Text size="sm" mb="md">
+          You have unsaved metadata edits. Close anyway and lose your changes?
+        </Text>
+        <Group justify="flex-end" gap="sm">
+          <Button variant="default" onClick={() => setShowUnsavedClose(false)}>
+            Cancel
+          </Button>
+          <Button
+            color="red"
+            onClick={() => {
+              setShowUnsavedClose(false)
+              void window.api.confirmAppClose()
+            }}
+          >
+            Close without saving
+          </Button>
+        </Group>
+      </Modal>
+
+      <Modal
+        opened={showMismatchConfirm}
+        onClose={() => setShowMismatchConfirm(false)}
+        title="Unify mismatched metadata?"
+        centered
+      >
+        <Text size="sm" mb="md">
+          Difficulties in this set have different metadata values. Saving will apply your edits to
+          every .osu file.
+        </Text>
+        <Group justify="flex-end" gap="sm">
+          <Button variant="default" onClick={() => setShowMismatchConfirm(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => void performSave()}>Save anyway</Button>
+        </Group>
+      </Modal>
+    </>
   )
 }
 
@@ -518,18 +702,18 @@ export default function App(): JSX.Element {
     void refreshSettings()
   }, [refreshSettings])
 
-  const handleChangeFolder = async (): Promise<void> => {
-    const path = await window.api.pickSongsFolder()
-    if (path) setSongsPath(path)
-  }
-
-  if (loading) {
-    return <div className="loading-screen">Loading…</div>
-  }
-
-  if (!songsPath) {
-    return <SetupScreen onReady={setSongsPath} />
-  }
-
-  return <MainScreen songsPath={songsPath} onChangeFolder={() => void handleChangeFolder()} />
+  return (
+    <MantineProvider defaultColorScheme="dark" theme={theme} cssVariablesResolver={cssVarResolver}>
+      <WindowBar />
+      {loading ? (
+        <Center h="100vh">
+          <Loader color="primary" />
+        </Center>
+      ) : !songsPath ? (
+        <SetupScreen onReady={setSongsPath} />
+      ) : (
+        <MainScreen songsPath={songsPath} onSongsPathChange={setSongsPath} />
+      )}
+    </MantineProvider>
+  )
 }

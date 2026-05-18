@@ -2,15 +2,23 @@ import {
   applyRomanizedFieldLocks,
   getRomanizedFieldLocks
 } from '../shared/romanization'
+import { metadataEquals } from '../shared/metadata-utils'
 import type { BeatmapMetadata, LoadedMetadata, SaveMetadataResult } from '../shared/types'
 import { getOsuFilesInSet } from './beatmap-scanner'
+import { inspectOsuBeatmapSet } from './beatmap-set-online'
+import { resolveBeatmapSetId } from '../shared/beatmap-set-id'
+import { basename } from 'path'
+import { readDifficultySummary } from './osu-difficulty'
 import {
-  metadataEquals,
+  readBeatmapSetIdFromFile,
+  readCreatorFromFile,
   readMetadataFromFile,
+  readSourceFromFile,
+  readVersionFromFile,
   updateMetadataInFile
 } from './osu-file'
 
-export function loadSetMetadata(folderPath: string): LoadedMetadata {
+export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadata> {
   const osuFiles = getOsuFilesInSet(folderPath)
   if (osuFiles.length === 0) {
     throw new Error('No .osu files found in this beatmap folder.')
@@ -30,12 +38,31 @@ export function loadSetMetadata(folderPath: string): LoadedMetadata {
   const locks = getRomanizedFieldLocks(primary)
   const metadata = applyRomanizedFieldLocks(primary, locks)
 
+  const difficultyVersions = osuFiles.map((filePath) => readVersionFromFile(filePath))
+  const difficulties = osuFiles
+    .map((filePath) => readDifficultySummary(filePath))
+    .sort((a, b) => a.starRating - b.starRating || a.version.localeCompare(b.version))
+  const creator = readCreatorFromFile(osuFiles[0])
+  const source = readSourceFromFile(osuFiles[0])
+  const beatmapSetId = readBeatmapSetIdFromFile(osuFiles[0])
+  const resolvedSetId = resolveBeatmapSetId({
+    beatmapSetId: beatmapSetId > 0 ? beatmapSetId : null,
+    folderName: basename(folderPath)
+  })
+  const osuInfo = resolvedSetId != null ? await inspectOsuBeatmapSet(resolvedSetId) : { online: false, isFeaturedArtist: false }
+
   return {
     metadata,
     mismatched,
     diffCount: osuFiles.length,
     lockArtistRomanized: locks.artist,
-    lockTitleRomanized: locks.title
+    lockTitleRomanized: locks.title,
+    difficultyVersions,
+    difficulties,
+    creator,
+    source,
+    isFeaturedArtist: osuInfo.isFeaturedArtist,
+    isOnOsuWebsite: osuInfo.online
   }
 }
 

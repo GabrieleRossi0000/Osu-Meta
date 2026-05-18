@@ -1,0 +1,419 @@
+﻿@font-face {
+  font-family: 'Nunito';
+  src: url('../assets/fonts/Nunito-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('../assets/fonts/Nunito-LightItalic.ttf') format('truetype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('../assets/fonts/Nunito-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('../assets/fonts/Nunito-Italic.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('../assets/fonts/Nunito-Medium.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('../assets/fonts/Nunito-MediumItalic.ttf') format('truetype');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('../assets/fonts/Nunito-SemiBold.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('../assets/fonts/Nunito-SemiBoldItalic.ttf') format('truetype');
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('../assets/fonts/Nunito-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Nunito';
+  src: url('../assets/fonts/Nunito-BoldItalic.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Torus';
+  src: url('../assets/fonts/Torus-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background-color: transparent;
+  opacity: 0;
+  transition:
+    background-color 0.15s ease,
+    opacity 150ms ease;
+
+  &:hover {
+    background-color: var(--mantine-color-dark-8);
+    opacity: 1;
+  }
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: var(--mantine-color-primary-2);
+  border-radius: var(--mantine-radius-default);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Selection */
+::selection {
+  background-color: var(--mantine-color-primary-2);
+  color: var(--mantine-color-black);
+}
+
+::moz-selection {
+  background-color: var(--mantine-color-primary-2);
+  color: var(--mantine-color-black);
+}
+
+/* React Router view transitions — requires createBrowserRouter + RouterProvider
+   (BrowserRouter ignores viewTransition). See react-router.com/how-to/view-transitions */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 220ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Keep persistent chrome (header + sidebar nav) out of route snapshot morphing */
+::view-transition-old(app-header),
+::view-transition-new(app-header),
+::view-transition-old(app-sidebar),
+::view-transition-new(app-sidebar) {
+  animation: none;
+}
+
+/* Window bar height — keep in sync with WindowBar `barHeight` */
+:root {
+  --mv-window-bar-height: 48px;
+}
+
+/* Mantine notifications (see https://mantine.dev/x/notifications — full surface color, no left accent) */
+.mv-notifications-root {
+  width: max-content !important;
+  max-width: min(
+    calc(100vw - var(--mantine-spacing-md) * 2),
+    var(--notifications-container-width)
+  );
+}
+
+.mv-notifications-root[data-position='top-center'] {
+  /* Below fixed custom title bar (z-index 2000) */
+  top: calc(var(--mv-window-bar-height) + var(--mantine-spacing-sm));
+}
+
+.mv-notification {
+  width: fit-content !important;
+  max-width: min(
+    calc(100vw - var(--mantine-spacing-md) * 2),
+    var(--notifications-container-width)
+  );
+  align-items: center;
+  /* Tinted glass: muted color + blur what’s behind the toast */
+  background: color-mix(
+    in srgb,
+    var(--notification-color, var(--mantine-primary-color-filled)) 42%,
+    rgba(8, 12, 18, 0.55)
+  ) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(1.12);
+  backdrop-filter: blur(14px) saturate(1.12);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.28);
+  padding-block: 0.3rem;
+  padding-inline: 0.65rem;
+  font-size: var(--mantine-font-size-xs);
+  line-height: 1.35;
+  color: var(--mantine-color-white);
+
+  /* Default theme uses ::before as colored strip — use full card color instead */
+  &::before {
+    display: none;
+  }
+
+  /* Icon adds visual weight on the start; nudge padding so L/R feel even */
+  &[data-with-icon] {
+    padding-inline: 0.6rem 0.8rem;
+  }
+
+  /* Ensure message/description inherits on tinted backgrounds */
+  &,
+  & * {
+    color: var(--mantine-color-white);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-notification {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: color-mix(
+      in srgb,
+      var(--notification-color, var(--mantine-primary-color-filled)) 58%,
+      rgba(8, 12, 18, 0.72)
+    ) !important;
+  }
+}
+
+/* Same-route beatmap switch: outlet remounts when selectedFolder changes */
+.mv-route-outlet-wrap {
+  animation: mv-beatmap-content-fade 220ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes mv-beatmap-content-fade {
+  from {
+    opacity: 0.72;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* —— App shell & surfaces —— */
+.mv-app-main {
+  background: linear-gradient(
+    165deg,
+    var(--mantine-color-dark-8) 0%,
+    var(--mantine-color-dark-7) 45%,
+    var(--mantine-color-dark-8) 100%
+  );
+}
+
+.mv-paper-surface {
+  border: 1px solid color-mix(in srgb, var(--mantine-color-dark-3) 55%, transparent);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18);
+  transition:
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.mv-content-enter {
+  animation: mv-content-enter 320ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes mv-content-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mv-step-enter {
+  animation: mv-step-enter 280ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes mv-step-enter {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* —— Modals —— */
+.mv-modal-content {
+  border: 1px solid color-mix(in srgb, var(--mantine-color-dark-3) 70%, transparent);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
+}
+
+.mv-modal-header {
+  padding-bottom: 0.35rem;
+}
+
+.mv-modal-body-picker {
+  padding-top: 0.5rem;
+}
+
+.mv-modal-body-options {
+  padding-inline: var(--mantine-spacing-lg);
+  padding-block: var(--mantine-spacing-md);
+}
+
+/* —— Import flow —— */
+.mv-import-hero {
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--mantine-color-dark-3) 60%, transparent);
+}
+
+.mv-import-hero__shade {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 128px;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    rgba(13, 18, 26, 0.15) 0%,
+    rgba(13, 18, 26, 0.88) 100%
+  );
+}
+
+.mv-import-hero__text {
+  position: relative;
+  z-index: 1;
+  margin-top: -2.5rem;
+}
+
+.mv-import-option {
+  display: block;
+  width: 100%;
+  padding: 1rem 1.1rem;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--mantine-color-dark-4);
+  background: var(--mantine-color-dark-6);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+
+  &:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--mantine-color-primary-5) 65%, var(--mantine-color-dark-4));
+    background: var(--mantine-color-dark-5);
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
+}
+
+.mv-text-button {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.35rem;
+  margin: -0.25rem -0.35rem;
+  border-radius: var(--mantine-radius-sm);
+  color: var(--mantine-color-dimmed);
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+
+  &:hover:not(:disabled) {
+    color: var(--mantine-color-bright);
+    background: var(--mantine-color-dark-5);
+  }
+}
+
+/* —— Beatmap cards —— */
+.mv-beatmap-card {
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    transform 220ms ease;
+}
+
+/* —— Empty state —— */
+.mv-empty-state-icon {
+  animation: mv-empty-pulse 2.8s ease-in-out infinite;
+}
+
+@keyframes mv-empty-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.85;
+    transform: scale(1.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 1ms;
+  }
+
+  .mv-route-outlet-wrap,
+  .mv-content-enter,
+  .mv-step-enter {
+    animation: none;
+  }
+
+  .mv-empty-state-icon {
+    animation: none;
+    opacity: 0.7;
+  }
+
+  .mv-import-option:hover:not(:disabled) {
+    transform: none;
+  }
+}

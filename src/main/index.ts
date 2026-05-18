@@ -1,20 +1,26 @@
-import { app, BrowserWindow, shell } from 'electron'
+import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import { getAppIconPath } from './app-icon'
 import { registerIpcHandlers } from './ipc'
+import { openExternalUrl } from './open-external-url'
 import { registerBeatmapProtocol, setupBeatmapProtocolHandler } from './protocol'
 
 registerBeatmapProtocol()
 
 function createWindow(): void {
+  const icon = getAppIconPath()
+
   const mainWindow = new BrowserWindow({
     width: 1100,
     height: 720,
     minWidth: 900,
     minHeight: 600,
     show: false,
+    frame: false,
     autoHideMenuBar: true,
     title: 'Osu Meta',
+    ...(icon ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
@@ -27,7 +33,9 @@ function createWindow(): void {
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
+    void openExternalUrl(details.url).catch((error) => {
+      console.error('Failed to open external URL:', error)
+    })
     return { action: 'deny' }
   })
 

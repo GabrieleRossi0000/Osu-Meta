@@ -98,6 +98,36 @@ export function readMetadataFromFile(filePath: string): BeatmapMetadata {
   return readMetadataFromContent(text)
 }
 
+export function readVersionFromFile(filePath: string): string {
+  const buffer = readOsuFileBuffer(filePath)
+  const { text } = decodeOsuFile(buffer)
+  const lines = splitLines(text)
+  const sectionStart = findMetadataSectionStart(lines)
+  if (sectionStart === -1) return ''
+
+  const raw = parseMetadataSection(lines, sectionStart)
+  return raw.Version ?? ''
+}
+
+export function readCreatorFromFile(filePath: string): string {
+  return readMetadataFieldFromFile(filePath, 'Creator')
+}
+
+export function readSourceFromFile(filePath: string): string {
+  return readMetadataFieldFromFile(filePath, 'Source')
+}
+
+function readMetadataFieldFromFile(filePath: string, field: string): string {
+  const buffer = readOsuFileBuffer(filePath)
+  const { text } = decodeOsuFile(buffer)
+  const lines = splitLines(text)
+  const sectionStart = findMetadataSectionStart(lines)
+  if (sectionStart === -1) return ''
+
+  const raw = parseMetadataSection(lines, sectionStart)
+  return raw[field] ?? ''
+}
+
 export function readBeatmapSetIdFromFile(filePath: string): number {
   const buffer = readOsuFileBuffer(filePath)
   const { text } = decodeOsuFile(buffer)
@@ -106,8 +136,12 @@ export function readBeatmapSetIdFromFile(filePath: string): number {
   if (sectionStart === -1) return 0
 
   const raw = parseMetadataSection(lines, sectionStart)
-  const parsed = Number.parseInt(raw.BeatmapSetID ?? '', 10)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+  for (const [key, value] of Object.entries(raw)) {
+    if (key.toLowerCase() !== 'beatmapsetid') continue
+    const parsed = Number.parseInt(value, 10)
+    if (Number.isFinite(parsed) && parsed > 0) return parsed
+  }
+  return 0
 }
 
 function emptyMetadata(): BeatmapMetadata {
