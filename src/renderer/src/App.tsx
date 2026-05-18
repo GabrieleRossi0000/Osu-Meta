@@ -29,10 +29,12 @@ function MapListItem({
         onClick={onSelect}
       >
         {hasBg && (
-          <span
+          <img
             className="map-item-bg"
-            style={{ backgroundImage: `url("${set.backgroundImageUrl}")` }}
-            aria-hidden
+            src={set.backgroundImageUrl!}
+            alt=""
+            loading="lazy"
+            draggable={false}
           />
         )}
         <span className="map-item-overlay" aria-hidden />
@@ -185,10 +187,11 @@ function MetadataForm({
     <div className="editor-panel">
       <div className={`editor-hero ${hasBg ? '' : 'editor-hero--placeholder'}`}>
         {hasBg && (
-          <span
+          <img
             className="editor-hero-bg"
-            style={{ backgroundImage: `url("${selected.backgroundImageUrl}")` }}
-            aria-hidden
+            src={selected.backgroundImageUrl!}
+            alt=""
+            draggable={false}
           />
         )}
         <span className="editor-hero-overlay" aria-hidden />

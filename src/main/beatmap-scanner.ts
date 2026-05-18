@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
-import { resolveBackgroundImagePath, toBeatmapBgUrl } from './background-image'
+import { resolveBackgroundFromSet, toBeatmapBgUrl } from './background-image'
 import { readMetadataFromFile } from './osu-file'
 import type { BeatmapSetSummary } from '../shared/types'
 
@@ -47,7 +47,7 @@ export function scanBeatmapSets(songsPath: string): BeatmapSetSummary[] {
     const osuFiles = listOsuFiles(folderPath)
     if (osuFiles.length === 0) continue
 
-    const backgroundPath = resolveBackgroundImagePath(folderPath, osuFiles[0])
+    const backgroundPath = resolveBackgroundFromSet(folderPath, osuFiles)
 
     sets.push({
       folderPath,

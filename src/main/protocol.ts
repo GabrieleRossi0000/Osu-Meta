@@ -10,16 +10,20 @@ export function registerBeatmapProtocol(): void {
         secure: true,
         supportFetchAPI: true,
         corsEnabled: true,
-        stream: true
+        stream: true,
+        bypassCSP: true
       }
     }
   ])
 }
 
 export function setupBeatmapProtocolHandler(): void {
-  protocol.handle('beatmap-bg', async (request) => {
-    const encoded = request.url.replace(/^beatmap-bg:\/\//, '')
-    const filePath = Buffer.from(encoded, 'base64url').toString('utf8')
+  protocol.handle('beatmap-bg', (request) => {
+    const url = new URL(request.url)
+    const filePath = decodeURIComponent(url.searchParams.get('path') ?? '')
+    if (!filePath) {
+      return new Response('Missing path', { status: 400 })
+    }
     return net.fetch(pathToFileURL(filePath).href)
   })
 }
