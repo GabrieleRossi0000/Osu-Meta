@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { applyRomanizedFieldLocks } from '@shared/romanization'
+import { applyRomanizedFieldLocks, getRomanizedFieldLocks, isAlreadyRomanized } from '@shared/romanization'
 import type { BeatmapMetadata, BeatmapSetSummary, DetectedPath } from '@shared/types'
 import './App.css'
 
@@ -175,8 +175,6 @@ function MetadataForm({
   selected,
   metadata,
   mismatched,
-  lockArtistRomanized,
-  lockTitleRomanized,
   onChange,
   onSave,
   saving,
@@ -185,19 +183,22 @@ function MetadataForm({
   selected: BeatmapSetSummary
   metadata: BeatmapMetadata
   mismatched: boolean
-  lockArtistRomanized: boolean
-  lockTitleRomanized: boolean
   onChange: (metadata: BeatmapMetadata) => void
   onSave: () => void
   saving: boolean
   status: string | null
 }): JSX.Element {
+  const { artist: lockArtistRomanized, title: lockTitleRomanized } = useMemo(
+    () => getRomanizedFieldLocks(metadata),
+    [metadata.artistUnicode, metadata.titleUnicode]
+  )
+
   const update = (key: keyof BeatmapMetadata, value: string): void => {
     const next = { ...metadata, [key]: value }
-    if (key === 'artistUnicode' && lockArtistRomanized) {
+    if (key === 'artistUnicode' && isAlreadyRomanized(value)) {
       next.artist = value
     }
-    if (key === 'titleUnicode' && lockTitleRomanized) {
+    if (key === 'titleUnicode' && isAlreadyRomanized(value)) {
       next.title = value
     }
     onChange(next)
@@ -336,8 +337,6 @@ function MainScreen({
   const [selected, setSelected] = useState<BeatmapSetSummary | null>(null)
   const [metadata, setMetadata] = useState<BeatmapMetadata>(emptyMetadata())
   const [mismatched, setMismatched] = useState(false)
-  const [lockArtistRomanized, setLockArtistRomanized] = useState(false)
-  const [lockTitleRomanized, setLockTitleRomanized] = useState(false)
   const [loadingList, setLoadingList] = useState(true)
   const [loadingMeta, setLoadingMeta] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -378,8 +377,6 @@ function MainScreen({
       const loaded = await window.api.loadMetadata(set.folderPath)
       setMetadata(loaded.metadata)
       setMismatched(loaded.mismatched)
-      setLockArtistRomanized(loaded.lockArtistRomanized)
-      setLockTitleRomanized(loaded.lockTitleRomanized)
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to load metadata.')
     } finally {
@@ -392,10 +389,7 @@ function MainScreen({
     setSaving(true)
     setStatus(null)
     try {
-      const toSave = applyRomanizedFieldLocks(metadata, {
-        artist: lockArtistRomanized,
-        title: lockTitleRomanized
-      })
+      const toSave = applyRomanizedFieldLocks(metadata, getRomanizedFieldLocks(metadata))
       const result = await window.api.saveMetadata(selected.folderPath, toSave)
       setMismatched(false)
       setStatus(`Updated ${result.updatedFiles} .osu file(s).`)
@@ -476,8 +470,6 @@ function MainScreen({
             selected={selected}
             metadata={metadata}
             mismatched={mismatched}
-            lockArtistRomanized={lockArtistRomanized}
-            lockTitleRomanized={lockTitleRomanized}
             onChange={setMetadata}
             onSave={handleSave}
             saving={saving}
