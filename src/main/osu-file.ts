@@ -98,6 +98,18 @@ export function readMetadataFromFile(filePath: string): BeatmapMetadata {
   return readMetadataFromContent(text)
 }
 
+export function readBeatmapSetIdFromFile(filePath: string): number {
+  const buffer = readOsuFileBuffer(filePath)
+  const { text } = decodeOsuFile(buffer)
+  const lines = splitLines(text)
+  const sectionStart = findMetadataSectionStart(lines)
+  if (sectionStart === -1) return 0
+
+  const raw = parseMetadataSection(lines, sectionStart)
+  const parsed = Number.parseInt(raw.BeatmapSetID ?? '', 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
 function emptyMetadata(): BeatmapMetadata {
   return {
     artist: '',

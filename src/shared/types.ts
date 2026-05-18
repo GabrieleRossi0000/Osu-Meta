@@ -12,6 +12,9 @@ export interface BeatmapSetSummary {
   displayName: string
   diffCount: number
   backgroundImageUrl: string | null
+  beatmapSetId: number | null
+  lastModifiedAt: number
+  hiddenDuplicateCount: number
 }
 
 export interface LoadedMetadata {

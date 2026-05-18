@@ -271,6 +271,13 @@
   color: var(--text-muted);
 }
 
+.duplicate-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--warning);
+  line-height: 1.4;
+}
+
 .editor-body {
   padding: 1.25rem 1.5rem 2rem;
   max-width: 640px;

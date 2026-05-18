@@ -2,6 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { BeatmapMetadata, BeatmapSetSummary, DetectedPath } from '@shared/types'
 import './App.css'
 
+function formatLastModified(ms: number): string {
+  return new Date(ms).toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  })
+}
+
 const emptyMetadata = (): BeatmapMetadata => ({
   artist: '',
   artistUnicode: '',
@@ -42,6 +49,9 @@ function MapListItem({
           <span className="map-item-title">{set.displayName}</span>
           <span className="map-item-sub">
             {set.diffCount} diff{set.diffCount === 1 ? '' : 's'}
+            {set.hiddenDuplicateCount > 0
+              ? ` · ${set.hiddenDuplicateCount} older cop${set.hiddenDuplicateCount === 1 ? 'y' : 'ies'} hidden`
+              : ''}
           </span>
         </span>
       </button>
@@ -200,7 +210,14 @@ function MetadataForm({
           <p>
             {selected.folderName} · {selected.diffCount} difficult
             {selected.diffCount === 1 ? 'y' : 'ies'}
+            {selected.lastModifiedAt > 0 ? ` · Updated ${formatLastModified(selected.lastModifiedAt)}` : ''}
           </p>
+          {selected.hiddenDuplicateCount > 0 && (
+            <p className="duplicate-note">
+              Showing the newest of {selected.hiddenDuplicateCount + 1} copies on disk (BeatmapSetID{' '}
+              {selected.beatmapSetId ?? 'unknown'}). Older duplicate folders are hidden.
+            </p>
+          )}
         </div>
       </div>
 

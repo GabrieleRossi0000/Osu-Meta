@@ -1,7 +1,8 @@
 import { existsSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
+import { deduplicateBeatmapSets, type DedupCandidate } from './beatmap-dedup'
 import { resolveBackgroundFromSet, toBeatmapBgUrl } from './background-image'
-import { readMetadataFromFile } from './osu-file'
+import { readBeatmapSetIdFromFile, readMetadataFromFile } from './osu-file'
 import type { BeatmapSetSummary } from '../shared/types'
 
 function listOsuFiles(folderPath: string): string[] {
@@ -32,13 +33,38 @@ function buildDisplayName(folderName: string, osuPath: string | undefined): stri
   }
 }
 
+function getFolderLastModifiedMs(folderPath: string, osuFiles: string[]): number {
+  let latest = 0
+
+  try {
+    latest = Math.max(latest, statSync(folderPath).mtimeMs)
+  } catch {
+    // ignore
+  }
+
+  for (const osuFile of osuFiles) {
+    try {
+      latest = Math.max(latest, statSync(osuFile).mtimeMs)
+    } catch {
+      // ignore
+    }
+  }
+
+  return latest
+}
+
+function hasBeatmapSetIdPrefix(folderName: string, beatmapSetId: number): boolean {
+  if (beatmapSetId <= 0) return false
+  return folderName.startsWith(`${beatmapSetId} `)
+}
+
 export function scanBeatmapSets(songsPath: string): BeatmapSetSummary[] {
   if (!existsSync(songsPath)) {
     return []
   }
 
   const entries = readdirSync(songsPath, { withFileTypes: true })
-  const sets: BeatmapSetSummary[] = []
+  const candidates: DedupCandidate[] = []
 
   for (const entry of entries) {
     if (!entry.isDirectory()) continue
@@ -47,18 +73,23 @@ export function scanBeatmapSets(songsPath: string): BeatmapSetSummary[] {
     const osuFiles = listOsuFiles(folderPath)
     if (osuFiles.length === 0) continue
 
+    const primaryOsu = osuFiles[0]
+    const beatmapSetId = readBeatmapSetIdFromFile(primaryOsu)
     const backgroundPath = resolveBackgroundFromSet(folderPath, osuFiles)
 
-    sets.push({
+    candidates.push({
       folderPath,
       folderName: entry.name,
-      displayName: buildDisplayName(entry.name, osuFiles[0]),
+      displayName: buildDisplayName(entry.name, primaryOsu),
       diffCount: osuFiles.length,
-      backgroundImageUrl: backgroundPath ? toBeatmapBgUrl(backgroundPath) : null
+      backgroundImageUrl: backgroundPath ? toBeatmapBgUrl(backgroundPath) : null,
+      beatmapSetId,
+      lastModifiedMs: getFolderLastModifiedMs(folderPath, osuFiles),
+      hasIdPrefix: hasBeatmapSetIdPrefix(entry.name, beatmapSetId)
     })
   }
 
-  return sets.sort((a, b) =>
+  return deduplicateBeatmapSets(candidates).sort((a, b) =>
     a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
   )
 }
