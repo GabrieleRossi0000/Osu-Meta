@@ -59,6 +59,8 @@ export interface TagSectionsExpanded {
 export interface ScanCacheEntry {
   lastModifiedMs: number
   summary: BeatmapSetSummary
+  /** First .osu in folder — used for fast mtime checks without readdir */
+  primaryOsuPath?: string
 }
 
 export interface ScanCache {

@@ -17,7 +17,7 @@ import {
   useMantineTheme
 } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
-import { useDisclosure } from '@mantine/hooks'
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { filterBeatmaps } from '@shared/filter-beatmaps'
 import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
@@ -40,6 +40,7 @@ import ImportMetadataModal, {
 } from './components/metadata/ImportMetadataModal'
 import SettingsButton from './components/settings/SettingsButton'
 import WindowBar from './components/window/WindowBar'
+import logoUrl from './assets/logo.png'
 import { theme } from './theme/Theme'
 import '@mantine/core/styles.css'
 import './theme/global.scss'
@@ -104,11 +105,9 @@ function SetupScreen({ onReady }: { onReady: (path: string) => void }): JSX.Elem
 
   return (
     <Center h="100vh" p="md" style={{ paddingTop: 'var(--mv-window-bar-height)' }}>
-      <Paper p="xl" radius="lg" bg={theme.colors.dark[6]} maw={520} w="100%" className="mv-paper-surface">
-        <Stack gap="md">
-          <Text fw={700} size="xl">
-            Osu Meta
-          </Text>
+      <Paper p="xl" radius="lg" bg={theme.colors.dark[6]} maw={520} w="100%" className="mv-paper-surface mv-content-enter">
+        <Stack gap="md" align="center">
+          <img src={logoUrl} alt="OsuMeta" className="mv-logo" style={{ ['--mv-logo-height' as string]: '52px' }} />
           <Text c="dimmed" size="sm">
             Select your osu! <strong>Songs</strong> folder. The app lists beatmap sets and updates
             metadata across all difficulties at once.
@@ -146,10 +145,12 @@ function SetupScreen({ onReady }: { onReady: (path: string) => void }): JSX.Elem
 
 function MainScreen({
   songsPath,
-  onSongsPathChange
+  onSongsPathChange,
+  osuRunning
 }: {
   songsPath: string
   onSongsPathChange: (path: string) => void
+  osuRunning: boolean
 }): JSX.Element {
   const theme = useMantineTheme()
   const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true)
@@ -176,7 +177,6 @@ function MainScreen({
   const [showImportModal, setShowImportModal] = useState(false)
   const [importingMetadata, setImportingMetadata] = useState(false)
   const [highlightedFolderPath, setHighlightedFolderPath] = useState<string | null>(null)
-  const [osuRunning, setOsuRunning] = useState(false)
   const [showUnsavedSwitch, setShowUnsavedSwitch] = useState(false)
   const [showUnsavedClose, setShowUnsavedClose] = useState(false)
   const [pendingSelect, setPendingSelect] = useState<BeatmapSetSummary | null>(null)
@@ -191,20 +191,26 @@ function MainScreen({
   const [fetchNotice, setFetchNotice] = useState<string | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  const filteredBeatmaps = useMemo(() => filterBeatmaps(beatmaps, listSearch), [beatmaps, listSearch])
+  const [debouncedListSearch] = useDebouncedValue(listSearch, 200)
+  const filteredBeatmaps = useMemo(
+    () => filterBeatmaps(beatmaps, debouncedListSearch),
+    [beatmaps, debouncedListSearch]
+  )
 
   const isDirty = useMemo(
     () => savedMetadata !== null && !metadataEquals(metadata, savedMetadata),
     [metadata, savedMetadata]
   )
 
-  const loadBeatmaps = useCallback(async (force = false): Promise<void> => {
+  const loadBeatmaps = useCallback(async (force = false): Promise<BeatmapSetSummary[]> => {
     setLoadingList(true)
     try {
       const sets = await window.api.scanBeatmaps(force)
       setBeatmaps(sets)
+      return sets
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to scan beatmaps.')
+      return []
     } finally {
       setLoadingList(false)
     }
@@ -222,15 +228,6 @@ function MainScreen({
   }, [])
 
   useEffect(() => {
-    const poll = (): void => {
-      void window.api.isOsuRunning().then(setOsuRunning)
-    }
-    poll()
-    const interval = setInterval(poll, 3000)
-    return () => clearInterval(interval)
-  }, [])
-
-  useEffect(() => {
     void window.api.setCloseBlocked(isDirty)
   }, [isDirty])
 
@@ -240,26 +237,6 @@ function MainScreen({
       else void window.api.confirmAppClose()
     })
   }, [isDirty])
-
-  useEffect(() => {
-    if (!selected) {
-      setIsOnOsuWebsite(false)
-      return
-    }
-    const setId = resolveBeatmapSetId(selected)
-    if (setId == null) {
-      setIsOnOsuWebsite(false)
-      return
-    }
-
-    let cancelled = false
-    void window.api.checkBeatmapSetOnline(setId).then((online) => {
-      if (!cancelled) setIsOnOsuWebsite(online)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [selected?.folderPath, selected?.beatmapSetId, selected?.folderName])
 
   const selectBeatmap = useCallback(async (set: BeatmapSetSummary): Promise<void> => {
     setSelected(set)
@@ -306,10 +283,8 @@ function MainScreen({
       setMismatched(false)
       setSavedMetadata(toSave)
       setStatus(`Updated ${result.updatedFiles} .osu file(s).`)
-      await loadBeatmaps()
-      const refreshed = (await window.api.scanBeatmaps()).find(
-        (b) => b.folderPath === selected.folderPath
-      )
+      const sets = await loadBeatmaps()
+      const refreshed = sets.find((b) => b.folderPath === selected.folderPath)
       if (refreshed) setSelected(refreshed)
     } catch (err) {
       setStatus(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
@@ -492,6 +467,7 @@ function MainScreen({
   return (
     <>
       <AppShell
+        className="mv-app-shell"
         header={{ height: 92 }}
         navbar={{
           width: sidebarWidth,
@@ -501,11 +477,11 @@ function MainScreen({
         padding={0}
       >
         <AppShell.Header
+          className="mv-app-header"
           style={{
             marginTop: 'var(--mv-window-bar-height)',
             height: 60,
             fontFamily: theme.headings.fontFamily,
-            background: theme.colors.dark[8],
             viewTransitionName: 'app-header'
           }}
         >
@@ -520,7 +496,8 @@ function MainScreen({
 
         <AppShell.Navbar style={{ viewTransitionName: 'app-sidebar' }}>
           <BeatmapsSidebar
-            beatmaps={beatmaps}
+            filteredBeatmaps={filteredBeatmaps}
+            totalBeatmapCount={beatmaps.length}
             loading={loadingList}
             songsConfigured={Boolean(songsPath)}
             selectedFolderPath={selected?.folderPath ?? null}
@@ -690,6 +667,20 @@ function MainScreen({
 export default function App(): JSX.Element {
   const [songsPath, setSongsPath] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [osuRunning, setOsuRunning] = useState(false)
+
+  useEffect(() => {
+    if (!songsPath) {
+      setOsuRunning(false)
+      return
+    }
+    const poll = (): void => {
+      void window.api.isOsuRunning().then(setOsuRunning)
+    }
+    poll()
+    const interval = setInterval(poll, 5000)
+    return () => clearInterval(interval)
+  }, [songsPath])
 
   const refreshSettings = useCallback(async () => {
     setLoading(true)
@@ -712,7 +703,7 @@ export default function App(): JSX.Element {
       ) : !songsPath ? (
         <SetupScreen onReady={setSongsPath} />
       ) : (
-        <MainScreen songsPath={songsPath} onSongsPathChange={setSongsPath} />
+        <MainScreen songsPath={songsPath} onSongsPathChange={setSongsPath} osuRunning={osuRunning} />
       )}
     </MantineProvider>
   )

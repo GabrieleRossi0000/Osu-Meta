@@ -6,7 +6,11 @@ import logoUrl from '../../assets/logo.png'
 const dragStyle = { WebkitAppRegion: 'drag' } as CSSProperties
 const noDragStyle = { WebkitAppRegion: 'no-drag' } as CSSProperties
 
-export default function WindowBar(): JSX.Element {
+interface WindowBarProps {
+  osuRunning?: boolean
+}
+
+export default function WindowBar({ osuRunning = false }: WindowBarProps): JSX.Element {
   const theme = useMantineTheme()
   const { colorScheme } = useMantineColorScheme()
   const isDark = colorScheme === 'dark'
@@ -17,19 +21,9 @@ export default function WindowBar(): JSX.Element {
   const isDev = import.meta.env.DEV
 
   const [version, setVersion] = useState('')
-  const [osuRunning, setOsuRunning] = useState(false)
 
   useEffect(() => {
     void window.api.getAppVersion().then(setVersion).catch(() => setVersion(''))
-  }, [])
-
-  useEffect(() => {
-    const poll = (): void => {
-      void window.api.isOsuRunning().then(setOsuRunning)
-    }
-    poll()
-    const interval = setInterval(poll, 3000)
-    return () => clearInterval(interval)
   }, [])
 
   return (
@@ -47,7 +41,7 @@ export default function WindowBar(): JSX.Element {
         color: textColor,
         alignItems: 'center',
         userSelect: 'none',
-        borderBottom: `1px solid ${theme.colors.dark[4]}`
+        boxShadow: '0 8px 24px -12px rgba(0, 0, 0, 0.45)'
       }}
       pl={theme.spacing.sm}
       justify="flex-end"
@@ -61,14 +55,11 @@ export default function WindowBar(): JSX.Element {
         <img
           src={logoUrl}
           alt="OsuMeta"
+          className="mv-logo"
           draggable={false}
           style={{
             ...dragStyle,
-            display: 'block',
-            height: logoHeight,
-            width: 'auto',
-            objectFit: 'contain',
-            flexShrink: 0
+            ['--mv-logo-height' as string]: `${logoHeight}px`
           }}
         />
         <Tooltip label={osuRunning ? 'osu! is running' : 'osu! is not running'}>

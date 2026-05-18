@@ -22,21 +22,10 @@ import { useMemo, useState } from 'react'
 import { filterBeatmaps } from '@shared/filter-beatmaps'
 import type { BeatmapMetadata, BeatmapSetSummary } from '@shared/types'
 import BeatmapCard from '../beatmaps/BeatmapCard'
+import { modalClassNames, modalOverlayProps, modalTransitionProps } from '../../theme/modal'
 import { parseDisplayName } from '../../utils/parseDisplayName'
 
 export type ImportMetadataMode = 'full' | 'tags' | 'song'
-
-const PICKER_BODY_STYLE = {
-  maxHeight: 'min(72vh, 680px)',
-  overflowY: 'auto' as const,
-  paddingRight: 6
-}
-
-const OPTIONS_BODY_STYLE = {
-  paddingTop: 4,
-  paddingBottom: 8,
-  overflow: 'visible' as const
-}
 
 interface ImportOption {
   mode: ImportMetadataMode
@@ -232,15 +221,12 @@ export default function ImportMetadataModal({
       title={picked ? 'Import metadata' : 'Choose a mapset'}
       size={picked ? 'md' : 'lg'}
       centered
+      overlayProps={modalOverlayProps}
+      transitionProps={modalTransitionProps}
       classNames={{
-        content: 'mv-modal-content',
-        header: 'mv-modal-header',
-        body: picked ? 'mv-modal-body-options' : 'mv-modal-body-picker'
+        ...modalClassNames,
+        body: picked ? 'mv-modal-body-options mv-modal-body' : 'mv-modal-body-picker mv-modal-body'
       }}
-      styles={{
-        body: picked ? OPTIONS_BODY_STYLE : PICKER_BODY_STYLE
-      }}
-      transitionProps={{ transition: 'pop', duration: 220 }}
     >
       {picked ? (
         <ImportOptionsStep
@@ -281,7 +267,7 @@ export default function ImportMetadataModal({
                   variant="picker"
                   isSelected={false}
                   isHighlighted={false}
-                  onSelect={() => setPicked(bm)}
+                  onSelectFolder={() => setPicked(bm)}
                 />
               ))}
             </SimpleGrid>

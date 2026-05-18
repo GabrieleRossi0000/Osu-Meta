@@ -1,5 +1,5 @@
 import { Box, Flex, Stack, Text } from '@mantine/core'
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import type { BeatmapSetSummary } from '@shared/types'
 import { parseDisplayName } from '../../utils/parseDisplayName'
 
@@ -10,19 +10,19 @@ interface BeatmapCardProps {
   isSelected: boolean
   isHighlighted: boolean
   variant?: BeatmapCardVariant
-  onSelect: () => void
+  onSelectFolder: (folderPath: string) => void
 }
 
 const PICKER_WIDTH = 172
 const PICKER_HEIGHT = 120
 const SIDEBAR_HEIGHT = 96
 
-export default function BeatmapCard({
+function BeatmapCard({
   beatmap,
   isSelected,
   isHighlighted,
   variant = 'sidebar',
-  onSelect
+  onSelectFolder
 }: BeatmapCardProps): JSX.Element {
   const [isHovered, setIsHovered] = useState(false)
   const bgUrl = beatmap.backgroundImageUrl ?? undefined
@@ -55,24 +55,20 @@ export default function BeatmapCard({
       style={{
         justifyContent: 'center',
         alignItems: 'center',
-        borderRadius: 'var(--mantine-radius-md)',
+        borderRadius: 'var(--mv-radius-soft, var(--mantine-radius-lg))',
         position: 'relative',
         overflow: 'hidden',
         cursor: 'pointer',
         flexShrink: 0,
-        border: isHighlighted
-          ? '2px solid var(--mantine-color-teal-5)'
-          : active
-            ? '1px solid var(--mantine-color-blue-6)'
-            : '1px solid var(--mantine-color-dark-4)',
+        border: 'none',
         boxShadow: isHighlighted
-          ? '0 0 16px color-mix(in srgb, var(--mantine-color-teal-5) 45%, transparent)'
+          ? '0 0 0 2px color-mix(in srgb, var(--mantine-color-teal-5) 70%, transparent), 0 8px 24px rgba(0, 0, 0, 0.35)'
           : active
-            ? '0 0 0 1px color-mix(in srgb, var(--mantine-color-blue-6) 35%, transparent), 0 8px 24px rgba(0, 0, 0, 0.35)'
-            : '0 2px 8px rgba(0, 0, 0, 0.2)',
-        transition: `border-color ${transitionMs}, box-shadow ${transitionMs}`
+            ? '0 0 0 1px color-mix(in srgb, var(--mantine-color-blue-6) 40%, transparent), 0 10px 28px rgba(0, 0, 0, 0.32)'
+            : '0 2px 10px rgba(0, 0, 0, 0.18)',
+        transition: `box-shadow ${transitionMs}`
       }}
-      onClick={onSelect}
+      onClick={() => onSelectFolder(beatmap.folderPath)}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -83,7 +79,7 @@ export default function BeatmapCard({
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
-          borderRadius: 'var(--mantine-radius-md)',
+          borderRadius: 'var(--mv-radius-soft, var(--mantine-radius-lg))',
           zIndex: 0,
           backgroundImage: bgUrl ? `url('${bgUrl}')` : 'none',
           backgroundColor: bgUrl ? undefined : 'var(--mantine-color-dark-6)',
@@ -97,7 +93,7 @@ export default function BeatmapCard({
           position: 'absolute',
           inset: 0,
           background: active ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.6)',
-          borderRadius: 'var(--mantine-radius-md)',
+          borderRadius: 'var(--mv-radius-soft, var(--mantine-radius-lg))',
           zIndex: 1,
           pointerEvents: 'none',
           transition: `background ${transitionMs}`
@@ -139,3 +135,17 @@ export default function BeatmapCard({
     </Flex>
   )
 }
+
+export default memo(BeatmapCard, (prev, next) => {
+  return (
+    prev.beatmap.folderPath === next.beatmap.folderPath &&
+    prev.beatmap.displayName === next.beatmap.displayName &&
+    prev.beatmap.diffCount === next.beatmap.diffCount &&
+    prev.beatmap.backgroundImageUrl === next.beatmap.backgroundImageUrl &&
+    prev.beatmap.hiddenDuplicateCount === next.beatmap.hiddenDuplicateCount &&
+    prev.isSelected === next.isSelected &&
+    prev.isHighlighted === next.isHighlighted &&
+    prev.variant === next.variant &&
+    prev.onSelectFolder === next.onSelectFolder
+  )
+})

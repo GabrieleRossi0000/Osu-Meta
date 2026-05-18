@@ -2,9 +2,7 @@ import {
   ActionIcon,
   Alert,
   CloseButton,
-  Divider,
   Flex,
-  ScrollArea,
   Skeleton,
   TextInput,
   Tooltip
@@ -16,13 +14,18 @@ import {
   IconRefresh,
   IconSearchOff
 } from '@tabler/icons-react'
-import { useMemo, useRef, type RefObject } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import { memo, useCallback, useMemo, useRef, type RefObject } from 'react'
 import type { BeatmapSetSummary } from '@shared/types'
-import { filterBeatmaps } from '@shared/filter-beatmaps'
 import BeatmapCard from './BeatmapCard'
 
+const CARD_HEIGHT = 96
+const CARD_GAP = 8
+
 interface BeatmapsSidebarProps {
-  beatmaps: BeatmapSetSummary[]
+  /** Filtered list to render (search applied in parent) */
+  filteredBeatmaps: BeatmapSetSummary[]
+  totalBeatmapCount: number
   loading: boolean
   songsConfigured: boolean
   selectedFolderPath: string | null
@@ -37,8 +40,9 @@ interface BeatmapsSidebarProps {
   fetchNotice: string | null
 }
 
-export default function BeatmapsSidebar({
-  beatmaps,
+function BeatmapsSidebar({
+  filteredBeatmaps,
+  totalBeatmapCount,
   loading,
   songsConfigured,
   selectedFolderPath,
@@ -54,10 +58,35 @@ export default function BeatmapsSidebar({
 }: BeatmapsSidebarProps): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
 
-  const filtered = useMemo(() => filterBeatmaps(beatmaps, search), [beatmaps, search])
+  const beatmapByFolder = useMemo(() => {
+    const map = new Map<string, BeatmapSetSummary>()
+    for (const bm of filteredBeatmaps) {
+      map.set(bm.folderPath, bm)
+    }
+    return map
+  }, [filteredBeatmaps])
 
-  const emptyLibrary = !loading && songsConfigured && beatmaps.length === 0
-  const noResults = !loading && beatmaps.length > 0 && filtered.length === 0 && search.trim().length > 0
+  const onSelectFolder = useCallback(
+    (folderPath: string) => {
+      const bm = beatmapByFolder.get(folderPath)
+      if (bm) onSelect(bm)
+    },
+    [beatmapByFolder, onSelect]
+  )
+
+  const virtualizer = useVirtualizer({
+    count: filteredBeatmaps.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => CARD_HEIGHT,
+    gap: CARD_GAP,
+    paddingStart: CARD_GAP,
+    paddingEnd: CARD_GAP,
+    overscan: 8
+  })
+
+  const emptyLibrary = !loading && songsConfigured && totalBeatmapCount === 0
+  const noResults =
+    !loading && totalBeatmapCount > 0 && filteredBeatmaps.length === 0 && search.trim().length > 0
 
   return (
     <Flex
@@ -66,9 +95,10 @@ export default function BeatmapsSidebar({
       h="100%"
       style={{ overflow: 'hidden', position: 'relative' }}
     >
-      <Flex direction="column" gap="sm" p="xs">
+      <Flex direction="column" gap="sm" px="xs" pt="xs" pb={0} className="mv-sidebar-toolbar">
         <Flex gap="sm" direction="row" justify="space-between" wrap="nowrap">
           <TextInput
+            className="mv-search-input"
             ref={searchInputRef}
             placeholder="Search beatmaps..."
             value={search}
@@ -125,36 +155,61 @@ export default function BeatmapsSidebar({
           </Alert>
         )}
 
-        {loading && beatmaps.length === 0 && (
+        {loading && totalBeatmapCount === 0 && (
           <Alert icon={<IconAlertCircle />} color="blue" title="Scanning" variant="light">
             Loading beatmaps from your Songs folder…
           </Alert>
         )}
       </Flex>
-      <Divider />
-      <ScrollArea
-        type="auto"
-        offsetScrollbars="present"
-        viewportRef={scrollRef}
-        p="xs"
-        style={{ flex: '1 1 auto', minHeight: 0 }}
+      <div
+        ref={scrollRef}
+        className="mv-sidebar-scroll"
+        style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}
       >
-        <Flex direction="column" gap="xs" w="100%" style={{ justifyContent: 'center' }}>
-          {loading && beatmaps.length === 0
-            ? Array.from({ length: 6 }, (_, index) => (
-                <Skeleton key={index} height={96} radius="md" />
-              ))
-            : filtered.map((bm) => (
-                <BeatmapCard
+        {loading && totalBeatmapCount === 0 ? (
+          <Flex direction="column" gap={CARD_GAP} px="xs" pt={CARD_GAP} pb={CARD_GAP}>
+            {Array.from({ length: 6 }, (_, index) => (
+              <Skeleton key={index} height={CARD_HEIGHT} radius="md" />
+            ))}
+          </Flex>
+        ) : (
+          <div
+            style={{
+              height: virtualizer.getTotalSize(),
+              width: '100%',
+              position: 'relative'
+            }}
+          >
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const bm = filteredBeatmaps[virtualRow.index]
+              return (
+                <div
                   key={bm.folderPath}
-                  beatmap={bm}
-                  isSelected={selectedFolderPath === bm.folderPath}
-                  isHighlighted={highlightedFolderPath === bm.folderPath}
-                  onSelect={() => onSelect(bm)}
-                />
-              ))}
-        </Flex>
-      </ScrollArea>
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    paddingInline: 'var(--mantine-spacing-xs)',
+                    transform: `translateY(${virtualRow.start}px)`
+                  }}
+                >
+                  <BeatmapCard
+                    beatmap={bm}
+                    isSelected={selectedFolderPath === bm.folderPath}
+                    isHighlighted={highlightedFolderPath === bm.folderPath}
+                    onSelectFolder={onSelectFolder}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
     </Flex>
   )
 }
+
+export default memo(BeatmapsSidebar)

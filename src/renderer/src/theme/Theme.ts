@@ -70,7 +70,7 @@ const themeOverride = createTheme({
   headings: {
     fontFamily: 'Nunito, sans-serif'
   },
-  defaultRadius: 'md',
+  defaultRadius: 'lg',
   spacing: {
     xs: '0.25em',
     sm: '0.5em',
@@ -134,35 +134,85 @@ const themeOverride = createTheme({
         }
       }
     },
+    AppShell: {
+      styles: {
+        navbar: { border: 'none' },
+        header: { border: 'none' },
+        main: { border: 'none' }
+      }
+    },
     Modal: {
       defaultProps: {
-        radius: 'lg',
-        overlayProps: { backgroundOpacity: 0.62, blur: 6 },
-        transitionProps: { transition: 'pop', duration: 220 }
+        radius: 'xl',
+        centered: true,
+        zIndex: 2100,
+        overlayProps: { backgroundOpacity: 0.35, blur: 14 },
+        transitionProps: {
+          transition: 'pop',
+          duration: 280,
+          timingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)'
+        }
+      },
+      classNames: {
+        inner: 'mv-modal-inner',
+        overlay: 'mv-modal-overlay',
+        content: 'mv-modal-content',
+        header: 'mv-modal-header',
+        title: 'mv-modal-title',
+        body: 'mv-modal-body'
       },
       styles: {
         title: {
           fontFamily: 'Nunito, sans-serif',
           fontWeight: 700,
-          fontSize: 'var(--mantine-font-size-lg)'
-        },
-        content: {
-          backgroundColor: 'var(--mantine-color-dark-7)'
+          fontSize: 'var(--mantine-font-size-lg)',
+          letterSpacing: '-0.02em'
         }
       }
     },
     Paper: {
       defaultProps: {
-        radius: 'md'
+        radius: 'lg'
       }
     },
     TextInput: {
       defaultProps: {
-        radius: 'md'
+        radius: 'lg'
       },
       styles: {
         input: {
-          transition: 'border-color 150ms ease, box-shadow 150ms ease'
+          transition:
+            'border-color 180ms ease, box-shadow 180ms ease, background-color 150ms ease',
+          '&:focus': {
+            borderColor: 'var(--mantine-color-primary-5)',
+            boxShadow: '0 0 0 3px color-mix(in srgb, var(--mantine-color-primary-5) 22%, transparent)'
+          }
+        }
+      }
+    },
+    Textarea: {
+      defaultProps: {
+        radius: 'lg'
+      },
+      styles: {
+        input: {
+          transition:
+            'border-color 180ms ease, box-shadow 180ms ease, background-color 150ms ease',
+          '&:focus': {
+            borderColor: 'var(--mantine-color-primary-5)',
+            boxShadow: '0 0 0 3px color-mix(in srgb, var(--mantine-color-primary-5) 22%, transparent)'
+          }
+        }
+      }
+    },
+    Alert: {
+      defaultProps: {
+        radius: 'lg'
+      },
+      styles: {
+        root: {
+          border: 'none',
+          boxShadow: '0 2px 12px rgba(0, 0, 0, 0.12)'
         }
       }
     },

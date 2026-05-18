@@ -290,7 +290,7 @@ export default function MetadataEditor({
           />
 
           <Group gap="sm" align="center">
-            <Button type="submit" loading={saving}>
+            <Button type="submit" loading={saving} className="mv-save-primary">
               Save to all difficulties
             </Button>
             <Tooltip label="Import metadata from another mapset">

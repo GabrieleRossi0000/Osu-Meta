@@ -8,13 +8,13 @@ import { getOsuFilesInSet } from './beatmap-scanner'
 import { inspectOsuBeatmapSet } from './beatmap-set-online'
 import { resolveBeatmapSetId } from '../shared/beatmap-set-id'
 import { basename } from 'path'
-import { readDifficultySummary } from './osu-difficulty'
+import { readDifficultySummaryFromText } from './osu-difficulty'
 import {
-  readBeatmapSetIdFromFile,
-  readCreatorFromFile,
-  readMetadataFromFile,
-  readSourceFromFile,
-  readVersionFromFile,
+  readBeatmapSetIdFromContent,
+  readMetadataFieldFromContent,
+  readMetadataFromContent,
+  readOsuFileText,
+  readVersionFromContent,
   updateMetadataInFile
 } from './osu-file'
 
@@ -24,12 +24,13 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
     throw new Error('No .osu files found in this beatmap folder.')
   }
 
-  const primary = readMetadataFromFile(osuFiles[0])
+  const texts = osuFiles.map((filePath) => readOsuFileText(filePath))
+  const metadatas = texts.map((text) => readMetadataFromContent(text))
+  const primary = metadatas[0]
   let mismatched = false
 
-  for (let i = 1; i < osuFiles.length; i++) {
-    const other = readMetadataFromFile(osuFiles[i])
-    if (!metadataEquals(primary, other)) {
+  for (let i = 1; i < metadatas.length; i++) {
+    if (!metadataEquals(primary, metadatas[i])) {
       mismatched = true
       break
     }
@@ -38,18 +39,21 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
   const locks = getRomanizedFieldLocks(primary)
   const metadata = applyRomanizedFieldLocks(primary, locks)
 
-  const difficultyVersions = osuFiles.map((filePath) => readVersionFromFile(filePath))
-  const difficulties = osuFiles
-    .map((filePath) => readDifficultySummary(filePath))
+  const difficultyVersions = texts.map((text) => readVersionFromContent(text))
+  const difficulties = texts
+    .map((text, index) => readDifficultySummaryFromText(text, basename(osuFiles[index])))
     .sort((a, b) => a.starRating - b.starRating || a.version.localeCompare(b.version))
-  const creator = readCreatorFromFile(osuFiles[0])
-  const source = readSourceFromFile(osuFiles[0])
-  const beatmapSetId = readBeatmapSetIdFromFile(osuFiles[0])
+  const creator = readMetadataFieldFromContent(texts[0], 'Creator')
+  const source = readMetadataFieldFromContent(texts[0], 'Source')
+  const beatmapSetId = readBeatmapSetIdFromContent(texts[0])
   const resolvedSetId = resolveBeatmapSetId({
     beatmapSetId: beatmapSetId > 0 ? beatmapSetId : null,
     folderName: basename(folderPath)
   })
-  const osuInfo = resolvedSetId != null ? await inspectOsuBeatmapSet(resolvedSetId) : { online: false, isFeaturedArtist: false }
+  const osuInfo =
+    resolvedSetId != null
+      ? await inspectOsuBeatmapSet(resolvedSetId)
+      : { online: false, isFeaturedArtist: false }
 
   return {
     metadata,

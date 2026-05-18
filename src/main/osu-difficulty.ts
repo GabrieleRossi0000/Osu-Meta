@@ -27,10 +27,10 @@ function calculateStarRating(text: string, mode: number): number {
   }
 }
 
-export function readDifficultySummary(filePath: string): BeatmapDifficultySummary {
-  const buffer = readOsuFileBuffer(filePath)
-  const { text } = decodeOsuFile(buffer)
-  const filename = basename(filePath)
+export function readDifficultySummaryFromText(
+  text: string,
+  filename: string
+): BeatmapDifficultySummary {
 
   const mode = Number.parseInt(readField(text, 'Mode') || '0', 10)
   const version = readField(text, 'Version') || filename
@@ -43,4 +43,10 @@ export function readDifficultySummary(filePath: string): BeatmapDifficultySummar
     iconUrl: difficultyIconUrl(mode, starRating),
     filename
   }
+}
+
+export function readDifficultySummary(filePath: string): BeatmapDifficultySummary {
+  const buffer = readOsuFileBuffer(filePath)
+  const { text } = decodeOsuFile(buffer)
+  return readDifficultySummaryFromText(text, basename(filePath))
 }

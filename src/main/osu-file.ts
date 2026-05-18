@@ -98,28 +98,7 @@ export function readMetadataFromFile(filePath: string): BeatmapMetadata {
   return readMetadataFromContent(text)
 }
 
-export function readVersionFromFile(filePath: string): string {
-  const buffer = readOsuFileBuffer(filePath)
-  const { text } = decodeOsuFile(buffer)
-  const lines = splitLines(text)
-  const sectionStart = findMetadataSectionStart(lines)
-  if (sectionStart === -1) return ''
-
-  const raw = parseMetadataSection(lines, sectionStart)
-  return raw.Version ?? ''
-}
-
-export function readCreatorFromFile(filePath: string): string {
-  return readMetadataFieldFromFile(filePath, 'Creator')
-}
-
-export function readSourceFromFile(filePath: string): string {
-  return readMetadataFieldFromFile(filePath, 'Source')
-}
-
-function readMetadataFieldFromFile(filePath: string, field: string): string {
-  const buffer = readOsuFileBuffer(filePath)
-  const { text } = decodeOsuFile(buffer)
+export function readMetadataFieldFromContent(text: string, field: string): string {
   const lines = splitLines(text)
   const sectionStart = findMetadataSectionStart(lines)
   if (sectionStart === -1) return ''
@@ -128,9 +107,11 @@ function readMetadataFieldFromFile(filePath: string, field: string): string {
   return raw[field] ?? ''
 }
 
-export function readBeatmapSetIdFromFile(filePath: string): number {
-  const buffer = readOsuFileBuffer(filePath)
-  const { text } = decodeOsuFile(buffer)
+export function readVersionFromContent(text: string): string {
+  return readMetadataFieldFromContent(text, 'Version')
+}
+
+export function readBeatmapSetIdFromContent(text: string): number {
   const lines = splitLines(text)
   const sectionStart = findMetadataSectionStart(lines)
   if (sectionStart === -1) return 0
@@ -142,6 +123,27 @@ export function readBeatmapSetIdFromFile(filePath: string): number {
     if (Number.isFinite(parsed) && parsed > 0) return parsed
   }
   return 0
+}
+
+export function readOsuFileText(filePath: string): string {
+  const buffer = readOsuFileBuffer(filePath)
+  return decodeOsuFile(buffer).text
+}
+
+export function readVersionFromFile(filePath: string): string {
+  return readVersionFromContent(readOsuFileText(filePath))
+}
+
+export function readCreatorFromFile(filePath: string): string {
+  return readMetadataFieldFromContent(readOsuFileText(filePath), 'Creator')
+}
+
+export function readSourceFromFile(filePath: string): string {
+  return readMetadataFieldFromContent(readOsuFileText(filePath), 'Source')
+}
+
+export function readBeatmapSetIdFromFile(filePath: string): number {
+  return readBeatmapSetIdFromContent(readOsuFileText(filePath))
 }
 
 function emptyMetadata(): BeatmapMetadata {

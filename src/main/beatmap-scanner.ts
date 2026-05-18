@@ -113,27 +113,57 @@ export function scanBeatmapSets(songsPath: string, force = false): BeatmapSetSum
 
   for (const folderName of folderNames) {
     const folderPath = join(songsPath, folderName)
+    const cached = useCache ? cache.entries[folderPath] : undefined
+
+    if (cached?.primaryOsuPath) {
+      let quickMs = 0
+      try {
+        quickMs = Math.max(quickMs, statSync(folderPath).mtimeMs)
+        quickMs = Math.max(quickMs, statSync(cached.primaryOsuPath).mtimeMs)
+      } catch {
+        quickMs = 0
+      }
+      if (quickMs > 0 && cached.lastModifiedMs >= quickMs) {
+        nextCache.entries[folderPath] = cached
+        candidates.push({
+          folderPath: cached.summary.folderPath,
+          folderName: cached.summary.folderName,
+          displayName: cached.summary.displayName,
+          diffCount: cached.summary.diffCount,
+          backgroundImageUrl: cached.summary.backgroundImageUrl,
+          beatmapSetId: cached.summary.beatmapSetId ?? 0,
+          lastModifiedMs: cached.summary.lastModifiedAt,
+          hasIdPrefix: hasBeatmapSetIdPrefix(
+            cached.summary.folderName,
+            cached.summary.beatmapSetId ?? 0
+          ),
+          flags: cached.summary.flags
+        })
+        continue
+      }
+    }
+
     const osuFiles = listOsuFiles(folderPath)
     if (osuFiles.length === 0) continue
 
     const lastModifiedMs = getFolderLastModifiedMs(folderPath, osuFiles)
-    const cached = useCache ? cache.entries[folderPath] : undefined
+    const cachedAfterList = useCache ? cache.entries[folderPath] : undefined
 
-    if (cached && cached.lastModifiedMs >= lastModifiedMs) {
-      nextCache.entries[folderPath] = cached
+    if (cachedAfterList && cachedAfterList.lastModifiedMs >= lastModifiedMs) {
+      nextCache.entries[folderPath] = cachedAfterList
       candidates.push({
-        folderPath: cached.summary.folderPath,
-        folderName: cached.summary.folderName,
-        displayName: cached.summary.displayName,
-        diffCount: cached.summary.diffCount,
-        backgroundImageUrl: cached.summary.backgroundImageUrl,
-        beatmapSetId: cached.summary.beatmapSetId ?? 0,
-        lastModifiedMs: cached.summary.lastModifiedAt,
+        folderPath: cachedAfterList.summary.folderPath,
+        folderName: cachedAfterList.summary.folderName,
+        displayName: cachedAfterList.summary.displayName,
+        diffCount: cachedAfterList.summary.diffCount,
+        backgroundImageUrl: cachedAfterList.summary.backgroundImageUrl,
+        beatmapSetId: cachedAfterList.summary.beatmapSetId ?? 0,
+        lastModifiedMs: cachedAfterList.summary.lastModifiedAt,
         hasIdPrefix: hasBeatmapSetIdPrefix(
-          cached.summary.folderName,
-          cached.summary.beatmapSetId ?? 0
+          cachedAfterList.summary.folderName,
+          cachedAfterList.summary.beatmapSetId ?? 0
         ),
-        flags: cached.summary.flags
+        flags: cachedAfterList.summary.flags
       })
       continue
     }
@@ -143,7 +173,11 @@ export function scanBeatmapSets(songsPath: string, force = false): BeatmapSetSum
 
     const hiddenDuplicateCount = 0
     const summary = toSummary(scanned, hiddenDuplicateCount)
-    nextCache.entries[folderPath] = { lastModifiedMs, summary }
+    nextCache.entries[folderPath] = {
+      lastModifiedMs,
+      summary,
+      primaryOsuPath: osuFiles[0]
+    }
     candidates.push(scanned)
   }
 
