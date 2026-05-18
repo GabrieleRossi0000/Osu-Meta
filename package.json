@@ -4,10 +4,10 @@
   "description": "Bulk edit osu! beatmap metadata across all difficulties",
   "main": "./out/main/index.js",
   "author": "GabrieleRossi0000",
-  "homepage": "https://github.com/GabrieleRossi0000/osu-meta",
+  "homepage": "https://github.com/GabrieleRossi0000/Osu-Meta",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GabrieleRossi0000/osu-meta.git"
+    "url": "https://github.com/GabrieleRossi0000/Osu-Meta.git"
   },
   "scripts": {
     "format": "prettier --write .",

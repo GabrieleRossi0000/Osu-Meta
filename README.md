@@ -8,7 +8,7 @@ Edit artist, title, and tags for a whole beatmap set in one place — every diff
 
 ## Get started
 
-1. Download the latest **Osu Meta** installer (or portable `.exe`) from [GitHub Releases](https://github.com/GabrieleRossi0000/osu-meta/releases).
+1. Download the latest **Osu Meta** installer (or portable `.exe`) from [GitHub Releases](https://github.com/GabrieleRossi0000/Osu-Meta/releases).
 2. Run the app. On first launch, choose your osu! **Songs** folder. The app can usually find it automatically for stable and lazer.
 
 ## Using the app

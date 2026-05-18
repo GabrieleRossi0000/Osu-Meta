@@ -42,4 +42,4 @@ npmRebuild: false
 publish:
   provider: github
   owner: GabrieleRossi0000
-  repo: osu-meta
+  repo: Osu-Meta
