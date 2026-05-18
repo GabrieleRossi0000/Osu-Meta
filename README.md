@@ -17,4 +17,4 @@ Edit artist, title, and tags for a whole beatmap set in one place — every diff
 2. Edit the metadata fields you need.
 3. Click **Save to all difficulties**.
 
-For best results, close osu! before saving (or make sure the map isn’t open in the editor), so the game doesn’t overwrite what you just wrote.
+For best results, close osu! before saving (or make sure the map isn’t open in the editor), so the game doesn’t overwrite your changes.
