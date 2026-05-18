@@ -27,9 +27,14 @@ jobs:
 
       - name: Build and package
         run: npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload release assets
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          files: dist/OsuMeta-*
+          tag_name: ${{ github.ref_name }}
+          files: dist/OsuMeta-*.exe
           generate_release_notes: true

@@ -26,3 +26,4 @@ nsis:
 portable:
   artifactName: OsuMeta-${version}-portable.${ext}
 npmRebuild: false
+publish: null
