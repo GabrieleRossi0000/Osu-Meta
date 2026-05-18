@@ -11,6 +11,7 @@ export interface BeatmapSetSummary {
   folderName: string
   displayName: string
   diffCount: number
+  backgroundImageUrl: string | null
 }
 
 export interface LoadedMetadata {

@@ -10,6 +10,43 @@ const emptyMetadata = (): BeatmapMetadata => ({
   tags: ''
 })
 
+function MapListItem({
+  set,
+  active,
+  onSelect
+}: {
+  set: BeatmapSetSummary
+  active: boolean
+  onSelect: () => void
+}): JSX.Element {
+  const hasBg = Boolean(set.backgroundImageUrl)
+
+  return (
+    <li>
+      <button
+        type="button"
+        className={`map-item ${active ? 'active' : ''} ${hasBg ? '' : 'map-item--no-bg'}`}
+        onClick={onSelect}
+      >
+        {hasBg && (
+          <span
+            className="map-item-bg"
+            style={{ backgroundImage: `url("${set.backgroundImageUrl}")` }}
+            aria-hidden
+          />
+        )}
+        <span className="map-item-overlay" aria-hidden />
+        <span className="map-item-content">
+          <span className="map-item-title">{set.displayName}</span>
+          <span className="map-item-sub">
+            {set.diffCount} diff{set.diffCount === 1 ? '' : 's'}
+          </span>
+        </span>
+      </button>
+    </li>
+  )
+}
+
 function SetupScreen({
   onReady
 }: {
@@ -55,33 +92,40 @@ function SetupScreen({
   }
 
   return (
-    <div className="setup-screen">
-      <h1>Welcome to Osu Meta</h1>
-      <p>
-        Select your osu! <strong>Songs</strong> folder. The app will list beatmap sets and
-        update metadata across all difficulties at once.
-      </p>
+    <div className="app">
+      <div className="setup-screen">
+        <div className="app-brand" style={{ marginBottom: '1.25rem' }}>
+          <span className="app-brand-mark" />
+          <h1 style={{ margin: 0, fontSize: '1.25rem' }}>Osu Meta</h1>
+        </div>
+        <p>
+          Select your osu! <strong>Songs</strong> folder. The app lists beatmap sets and updates
+          metadata across all difficulties at once.
+        </p>
 
-      <ul className="detected-list">
-        {detected.map((item) => (
-          <li key={item.path}>
-            <span className={item.exists ? 'exists' : 'missing'}>
-              {item.exists ? 'Found' : 'Not found'} — {item.label}
-            </span>
-            <div className="settings-path">{item.path}</div>
-          </li>
-        ))}
-      </ul>
+        <ul className="detected-list">
+          {detected.map((item) => (
+            <li key={item.path}>
+              <span className={item.exists ? 'exists' : 'missing'}>
+                {item.exists ? 'Found' : 'Not found'} — {item.label}
+              </span>
+              <div className="settings-path" style={{ maxWidth: 'none', marginTop: '0.25rem' }}>
+                {item.path}
+              </div>
+            </li>
+          ))}
+        </ul>
 
-      {error && <p className="status-text error">{error}</p>}
+        {error && <p className="status-text error">{error}</p>}
 
-      <div className="setup-actions">
-        <button className="btn btn-primary" type="button" onClick={useDetected} disabled={loading}>
-          Use detected folder
-        </button>
-        <button className="btn" type="button" onClick={pickFolder} disabled={loading}>
-          Choose folder…
-        </button>
+        <div className="setup-actions">
+          <button className="btn btn-primary" type="button" onClick={useDetected} disabled={loading}>
+            Use detected folder
+          </button>
+          <button className="btn" type="button" onClick={pickFolder} disabled={loading}>
+            Choose folder…
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -135,83 +179,97 @@ function MetadataForm({
     onChange({ ...metadata, [key]: value })
   }
 
+  const hasBg = Boolean(selected.backgroundImageUrl)
+
   return (
     <div className="editor-panel">
-      <div className="panel-header">
-        <h2>{selected.displayName}</h2>
-        <p>
-          {selected.folderName} · {selected.diffCount} difficulty
-          {selected.diffCount === 1 ? '' : 'ies'}
-        </p>
+      <div className={`editor-hero ${hasBg ? '' : 'editor-hero--placeholder'}`}>
+        {hasBg && (
+          <span
+            className="editor-hero-bg"
+            style={{ backgroundImage: `url("${selected.backgroundImageUrl}")` }}
+            aria-hidden
+          />
+        )}
+        <span className="editor-hero-overlay" aria-hidden />
+        <div className="editor-hero-content">
+          <h2>{selected.displayName}</h2>
+          <p>
+            {selected.folderName} · {selected.diffCount} difficult
+            {selected.diffCount === 1 ? 'y' : 'ies'}
+          </p>
+        </div>
       </div>
 
-      {mismatched && (
-        <p className="status-text" style={{ color: '#f0d9a8', marginBottom: '0.75rem' }}>
-          Difficulties had mismatched metadata. Saving will unify all .osu files in this set.
-        </p>
-      )}
+      <div className="editor-body">
+        {mismatched && (
+          <p className="alert">
+            Difficulties had mismatched metadata. Saving will unify all .osu files in this set.
+          </p>
+        )}
 
-      <form
-        className="metadata-form"
-        onSubmit={(e) => {
-          e.preventDefault()
-          onSave()
-        }}
-      >
-        <div className="field">
-          <label htmlFor="artistUnicode">Artist name</label>
-          <input
-            id="artistUnicode"
-            value={metadata.artistUnicode}
-            onChange={(e) => update('artistUnicode', e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="artist">Romanized artist name</label>
-          <input
-            id="artist"
-            value={metadata.artist}
-            onChange={(e) => update('artist', e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="titleUnicode">Song title</label>
-          <input
-            id="titleUnicode"
-            value={metadata.titleUnicode}
-            onChange={(e) => update('titleUnicode', e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="title">Romanized song title</label>
-          <input
-            id="title"
-            value={metadata.title}
-            onChange={(e) => update('title', e.target.value)}
-          />
-        </div>
-        <div className="field">
-          <label htmlFor="tags">Tags</label>
-          <textarea
-            id="tags"
-            value={metadata.tags}
-            onChange={(e) => update('tags', e.target.value)}
-          />
-        </div>
+        <form
+          className="metadata-form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            onSave()
+          }}
+        >
+          <div className="field">
+            <label htmlFor="artistUnicode">Artist name</label>
+            <input
+              id="artistUnicode"
+              value={metadata.artistUnicode}
+              onChange={(e) => update('artistUnicode', e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="artist">Romanized artist name</label>
+            <input
+              id="artist"
+              value={metadata.artist}
+              onChange={(e) => update('artist', e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="titleUnicode">Song title</label>
+            <input
+              id="titleUnicode"
+              value={metadata.titleUnicode}
+              onChange={(e) => update('titleUnicode', e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="title">Romanized song title</label>
+            <input
+              id="title"
+              value={metadata.title}
+              onChange={(e) => update('title', e.target.value)}
+            />
+          </div>
+          <div className="field">
+            <label htmlFor="tags">Tags</label>
+            <textarea
+              id="tags"
+              value={metadata.tags}
+              onChange={(e) => update('tags', e.target.value)}
+            />
+          </div>
 
-        <div className="form-actions">
-          <button className="btn btn-primary" type="submit" disabled={saving}>
-            {saving ? 'Saving…' : 'Save to all difficulties'}
-          </button>
-          {status && (
-            <span
-              className={`status-text ${status.startsWith('Updated') ? 'success' : status.startsWith('Failed') ? 'error' : ''}`}
-            >
-              {status}
-            </span>
-          )}
-        </div>
-      </form>
+          <div className="form-actions">
+            <button className="btn btn-primary" type="submit" disabled={saving}>
+              {saving ? 'Saving…' : 'Save to all difficulties'}
+            </button>
+            {status && (
+              <span
+                className={`status-text ${status.startsWith('Updated') ? 'success' : status.startsWith('Failed') ? 'error' : ''}`}
+              >
+                {status}
+              </span>
+            )}
+          </div>
+        </form>
+      </div>
     </div>
   )
 }
@@ -284,6 +342,10 @@ function MainScreen({
       setMismatched(false)
       setStatus(`Updated ${result.updatedFiles} .osu file(s).`)
       await loadBeatmaps()
+      const refreshed = (await window.api.scanBeatmaps()).find(
+        (b) => b.folderPath === selected.folderPath
+      )
+      if (refreshed) setSelected(refreshed)
     } catch (err) {
       setStatus(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
     } finally {
@@ -304,13 +366,16 @@ function MainScreen({
   return (
     <div className="app">
       <header className="app-header">
-        <h1>Osu Meta</h1>
+        <div className="app-brand">
+          <span className="app-brand-mark" />
+          <h1>Osu Meta</h1>
+        </div>
         <div className="app-header-actions">
           <span className="settings-path" title={songsPath}>
             {songsPath}
           </span>
           <button className="btn btn-ghost" type="button" onClick={onChangeFolder}>
-            Change Songs folder
+            Change folder
           </button>
           <button className="btn btn-ghost" type="button" onClick={loadBeatmaps} disabled={loadingList}>
             Rescan
@@ -318,9 +383,7 @@ function MainScreen({
         </div>
       </header>
 
-      <div className="banner">
-        Close osu! before saving so your changes are not overwritten.
-      </div>
+      <div className="banner">Close osu! before saving so your changes are not overwritten.</div>
 
       <div className="app-body">
         <div className="panel">
@@ -335,20 +398,18 @@ function MainScreen({
             />
           </div>
           <ul className="map-list">
-            {filtered.map((set) => (
-              <li key={set.folderPath}>
-                <button
-                  type="button"
-                  className={`map-item ${selected?.folderPath === set.folderPath ? 'active' : ''}`}
-                  onClick={() => void selectBeatmap(set)}
-                >
-                  <span className="map-item-title">{set.displayName}</span>
-                  <span className="map-item-sub">
-                    {set.diffCount} diff{set.diffCount === 1 ? '' : 's'}
-                  </span>
-                </button>
-              </li>
-            ))}
+            {filtered.length === 0 && !loadingList ? (
+              <li className="map-list-empty">No beatmaps match your search.</li>
+            ) : (
+              filtered.map((set) => (
+                <MapListItem
+                  key={set.folderPath}
+                  set={set}
+                  active={selected?.folderPath === set.folderPath}
+                  onSelect={() => void selectBeatmap(set)}
+                />
+              ))
+            )}
           </ul>
         </div>
 
@@ -364,9 +425,12 @@ function MainScreen({
           />
         ) : (
           <div className="editor-panel editor-empty">
-            {loadingMeta
-              ? 'Loading metadata…'
-              : 'Select a beatmap set to edit artist, title, and tags.'}
+            <span className="editor-empty-icon">♪</span>
+            <p>
+              {loadingMeta
+                ? 'Loading metadata…'
+                : 'Select a beatmap set to edit artist, title, and tags.'}
+            </p>
           </div>
         )}
       </div>
@@ -403,7 +467,7 @@ export default function App(): JSX.Element {
   }
 
   if (loading) {
-    return <div className="editor-panel editor-empty">Loading…</div>
+    return <div className="loading-screen">Loading…</div>
   }
 
   if (!songsPath) {

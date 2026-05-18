@@ -23,6 +23,10 @@ const REVERSE_KEY_MAP = Object.fromEntries(
   Object.entries(KEY_MAP).map(([k, v]) => [v, k])
 ) as Record<string, keyof BeatmapMetadata>
 
+export function readOsuFileBuffer(filePath: string): Buffer {
+  return readFileSync(filePath)
+}
+
 export function decodeOsuFile(buffer: Buffer): { text: string; encoding: string } {
   if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
     return { text: buffer.subarray(3).toString('utf8'), encoding: 'utf8' }
@@ -89,7 +93,7 @@ export function readMetadataFromContent(text: string): BeatmapMetadata {
 }
 
 export function readMetadataFromFile(filePath: string): BeatmapMetadata {
-  const buffer = readFileSync(filePath)
+  const buffer = readOsuFileBuffer(filePath)
   const { text } = decodeOsuFile(buffer)
   return readMetadataFromContent(text)
 }
@@ -123,7 +127,7 @@ export function updateMetadataInFile(
   filePath: string,
   metadata: BeatmapMetadata
 ): void {
-  const buffer = readFileSync(filePath)
+  const buffer = readOsuFileBuffer(filePath)
   const { text, encoding } = decodeOsuFile(buffer)
   const eol = detectLineEnding(text)
   const lines = splitLines(text)

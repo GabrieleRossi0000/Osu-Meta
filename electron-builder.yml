@@ -12,8 +12,12 @@ files:
 win:
   executableName: OsuMeta
   target:
-    - nsis
-    - portable
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
 nsis:
   artifactName: OsuMeta-${version}-setup.${ext}
   shortcutName: Osu Meta

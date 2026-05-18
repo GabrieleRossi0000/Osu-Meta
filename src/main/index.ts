@@ -2,6 +2,9 @@ import { app, BrowserWindow, shell } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { registerIpcHandlers } from './ipc'
+import { registerBeatmapProtocol, setupBeatmapProtocolHandler } from './protocol'
+
+registerBeatmapProtocol()
 
 function createWindow(): void {
   const mainWindow = new BrowserWindow({
@@ -37,6 +40,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.osumeta.app')
+  setupBeatmapProtocolHandler()
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
