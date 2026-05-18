@@ -14,7 +14,7 @@ export interface OsuMetaAPI {
   getSettings: () => Promise<AppSettings>
   detectSongsPaths: () => Promise<DetectedPath[]>
   getDefaultSongsPath: () => Promise<string | null>
-  pickSongsFolder: () => Promise<string | null>
+  pickSongsFolder: (defaultPath?: string) => Promise<string | null>
   setSongsPath: (path: string) => Promise<string>
   scanBeatmaps: (force?: boolean) => Promise<BeatmapSetSummary[]>
   loadMetadata: (folderPath: string) => Promise<LoadedMetadata>
@@ -34,6 +34,7 @@ export interface OsuMetaAPI {
   setCloseBlocked: (blocked: boolean) => Promise<void>
   confirmAppClose: () => Promise<void>
   onRequestCloseConfirm: (callback: () => void) => () => void
+  onUpdaterUpToDate: (callback: () => void) => () => void
   window: {
     minimize: () => void
     toggleMaximize: () => void

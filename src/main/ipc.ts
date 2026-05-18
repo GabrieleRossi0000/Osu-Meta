@@ -29,10 +29,16 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('get-default-songs-path', () => getFirstExistingSongsPath())
 
-  ipcMain.handle('pick-songs-folder', async () => {
+  ipcMain.handle('pick-songs-folder', async (_event, defaultPath?: string) => {
+    const openAt =
+      typeof defaultPath === 'string' && defaultPath.length > 0 && existsSync(defaultPath)
+        ? defaultPath
+        : undefined
+
     const result = await dialog.showOpenDialog({
       properties: ['openDirectory'],
-      title: 'Select osu! Songs folder'
+      title: 'Select osu! Songs folder',
+      ...(openAt ? { defaultPath: openAt } : {})
     })
 
     if (result.canceled || result.filePaths.length === 0) {

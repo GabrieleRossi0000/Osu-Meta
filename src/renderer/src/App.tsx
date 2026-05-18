@@ -39,6 +39,7 @@ import ImportMetadataModal, {
   type ImportMetadataMode
 } from './components/metadata/ImportMetadataModal'
 import SettingsButton from './components/settings/SettingsButton'
+import UpToDatePill from './components/common/UpToDatePill'
 import WindowBar from './components/window/WindowBar'
 import logoUrl from './assets/logo.png'
 import { theme } from './theme/Theme'
@@ -488,7 +489,7 @@ function MainScreen({
           <Group h={60} px="md" wrap="nowrap">
             <Burger opened={desktopOpened} onClick={toggleDesktop} size="sm" />
             <Text fw={600} size="sm" style={{ flex: 1, minWidth: 0 }}>
-              Metadata
+              Beatmap list
             </Text>
             <SettingsButton songsPath={songsPath} onSongsPathChange={onSongsPathChange} />
           </Group>
@@ -695,6 +696,7 @@ export default function App(): JSX.Element {
 
   return (
     <MantineProvider defaultColorScheme="dark" theme={theme} cssVariablesResolver={cssVarResolver}>
+      <UpToDatePill />
       <WindowBar />
       {loading ? (
         <Center h="100vh">

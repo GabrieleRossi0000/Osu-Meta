@@ -32,8 +32,12 @@ export default function DifficultyList({ difficulties }: DifficultyListProps): J
           color: 'var(--mantine-color-dimmed)'
         }}
       >
-        {open ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-        <Text size="xs" c="dimmed">
+        {open ? (
+          <IconChevronDown size={16} stroke={2.75} />
+        ) : (
+          <IconChevronRight size={16} stroke={2.75} />
+        )}
+        <Text size="xs" c="dimmed" className="mv-font-difficulties">
           Difficulties ({sorted.length})
         </Text>
       </UnstyledButton>

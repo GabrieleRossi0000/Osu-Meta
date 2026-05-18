@@ -230,11 +230,27 @@ const themeOverride = createTheme({
     },
     Tooltip: {
       defaultProps: {
-        withArrow: true
+        withArrow: true,
+        color: 'gray.0',
+        radius: 'sm',
+        openDelay: 400
       },
       styles: {
         tooltip: {
-          textAlign: 'center'
+          backgroundColor: '#f5f5f5',
+          color: '#1a1a1a',
+          border: '1px solid #ababab',
+          boxShadow: '0 2px 6px rgba(0, 0, 0, 0.18)',
+          fontSize: 12,
+          lineHeight: 1.35,
+          fontFamily: 'Segoe UI, Tahoma, sans-serif',
+          padding: '4px 8px',
+          textAlign: 'left',
+          maxWidth: 280
+        },
+        arrow: {
+          backgroundColor: '#f5f5f5',
+          border: '1px solid #ababab'
         }
       }
     },

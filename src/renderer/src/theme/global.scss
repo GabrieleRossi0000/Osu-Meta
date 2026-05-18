@@ -86,6 +86,86 @@
   font-display: swap;
 }
 
+/* Display label font — replace Torus-Regular.otf with Monolite.ttf in assets/fonts if you have it */
+@font-face {
+  font-family: 'Monolite';
+  src:
+    url('../assets/fonts/Monolite.ttf') format('truetype'),
+    url('../assets/fonts/Monolite.otf') format('opentype'),
+    url('../assets/fonts/Torus-Regular.otf') format('opentype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+.mv-font-difficulties {
+  font-family: 'Monolite', sans-serif;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+/* Up-to-date pill (bottom-right, after update check) */
+.mv-up-to-date-pill {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1800;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 1rem;
+  border-radius: 9999px;
+  color: var(--mantine-color-white);
+  background: color-mix(in srgb, var(--mantine-color-dark-6) 88%, var(--mantine-color-green-8) 12%);
+  border: 1px solid color-mix(in srgb, var(--mantine-color-green-6) 45%, var(--mantine-color-dark-4));
+  box-shadow:
+    0 8px 28px rgba(0, 0, 0, 0.35),
+    0 0 0 1px color-mix(in srgb, white 6%, transparent) inset;
+  pointer-events: none;
+  user-select: none;
+  animation: mv-up-to-date-pill 2.8s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+@keyframes mv-up-to-date-pill {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  72% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-up-to-date-pill {
+    animation: mv-up-to-date-pill-reduced 2.8s ease forwards;
+  }
+
+  @keyframes mv-up-to-date-pill-reduced {
+    0%,
+    100% {
+      opacity: 0;
+    }
+
+    15%,
+    75% {
+      opacity: 1;
+    }
+  }
+}
+
 *::-webkit-scrollbar {
   width: 12px;
   height: 12px;

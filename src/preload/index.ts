@@ -15,7 +15,8 @@ const api = {
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('get-settings'),
   detectSongsPaths: (): Promise<DetectedPath[]> => ipcRenderer.invoke('detect-songs-paths'),
   getDefaultSongsPath: (): Promise<string | null> => ipcRenderer.invoke('get-default-songs-path'),
-  pickSongsFolder: (): Promise<string | null> => ipcRenderer.invoke('pick-songs-folder'),
+  pickSongsFolder: (defaultPath?: string): Promise<string | null> =>
+    ipcRenderer.invoke('pick-songs-folder', defaultPath),
   setSongsPath: (path: string): Promise<string> => ipcRenderer.invoke('set-songs-path', path),
   scanBeatmaps: (force?: boolean): Promise<BeatmapSetSummary[]> =>
     ipcRenderer.invoke('scan-beatmaps', force),
@@ -54,6 +55,11 @@ const api = {
     const listener = (): void => callback()
     ipcRenderer.on('request-close-confirm', listener)
     return () => ipcRenderer.removeListener('request-close-confirm', listener)
+  },
+  onUpdaterUpToDate: (callback: () => void): (() => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('updater:up-to-date', listener)
+    return () => ipcRenderer.removeListener('updater:up-to-date', listener)
   },
   window: {
     minimize: (): void => ipcRenderer.send('window-minimize'),

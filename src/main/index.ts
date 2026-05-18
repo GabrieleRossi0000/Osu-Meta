@@ -3,6 +3,7 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import { getAppIconPath } from './app-icon'
 import { registerIpcHandlers } from './ipc'
+import { initAutoUpdater } from './updater'
 import { openExternalUrl } from './open-external-url'
 import { registerBeatmapProtocol, setupBeatmapProtocolHandler } from './protocol'
 
@@ -56,6 +57,7 @@ app.whenReady().then(() => {
 
   registerIpcHandlers()
   createWindow()
+  initAutoUpdater()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

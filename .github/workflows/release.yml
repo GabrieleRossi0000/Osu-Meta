@@ -37,4 +37,8 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           files: dist/OsuMeta-*.exe
-          generate_release_notes: true
+          generate_release_notes: false
+          body: |
+            Download the installer or portable build below.
+
+            The setup installer updates your existing installation in place when you use **Update now** in the app.

@@ -117,22 +117,22 @@ function BeatmapsSidebar({
             <ActionIcon
               variant="default"
               onClick={onFetchCurrent}
-              size={36}
+              size="sm"
               loading={fetchingCurrent}
               aria-label="Fetch current map from osu!"
             >
-              <IconDownload />
+              <IconDownload size={16} />
             </ActionIcon>
           </Tooltip>
           <Tooltip label="Rescan Songs folder (Shift+click for full rescan)">
             <ActionIcon
               variant="default"
               onClick={(event) => onRefresh(event.shiftKey)}
-              size={36}
+              size="sm"
               loading={loading}
               aria-label="Rescan Songs folder"
             >
-              <IconRefresh />
+              <IconRefresh size={16} />
             </ActionIcon>
           </Tooltip>
         </Flex>

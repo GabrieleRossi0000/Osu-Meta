@@ -32,7 +32,14 @@ nsis:
   shortcutName: Osu Meta
   uninstallDisplayName: Osu Meta
   createDesktopShortcut: always
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  deleteAppDataOnUninstall: false
 portable:
   artifactName: OsuMeta-${version}-portable.${ext}
 npmRebuild: false
-publish: null
+publish:
+  provider: github
+  owner: GabrieleRossi0000
+  repo: osu-meta

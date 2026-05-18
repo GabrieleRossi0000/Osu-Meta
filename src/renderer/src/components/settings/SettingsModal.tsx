@@ -1,5 +1,5 @@
-import { Alert, Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core'
-import { IconAlertTriangle, IconFolder } from '@tabler/icons-react'
+import { Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core'
+import { IconFolder } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 
 interface SettingsModalProps {
@@ -30,7 +30,7 @@ export default function SettingsModal({
     setSaving(true)
     setError(null)
     try {
-      const path = await window.api.pickSongsFolder()
+      const path = await window.api.pickSongsFolder(folder || songsPath || undefined)
       if (path) {
         setFolder(path)
         onSongsPathChange(path)
@@ -45,11 +45,6 @@ export default function SettingsModal({
   return (
     <Modal opened={opened} onClose={onClose} title="Settings" size="md" centered>
       <Stack gap="md">
-        <Alert icon={<IconAlertTriangle />} color="yellow" variant="light">
-          Make sure the map is not open in the editor and that you&apos;re on song select before
-          saving. <br />
-          If the map is still open in the editor, osu! may overwrite your changes.
-        </Alert>
         <TextInput label="Songs folder" value={folder} readOnly />
         <Button
           variant="light"

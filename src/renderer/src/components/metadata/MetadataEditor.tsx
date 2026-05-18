@@ -158,13 +158,13 @@ export default function MetadataEditor({
               {title ? ` - ${title}` : ''}
             </Text>
             {isOnOsuWebsite && (
-              <Tooltip label="Open beatmap page on osu.ppy.sh">
+              <Tooltip label="Open web beatmap page">
                 <span style={{ display: 'inline-flex', flexShrink: 0 }}>
                   <ActionIcon
                     variant="light"
                     color="gray"
                     size="sm"
-                    aria-label="Open beatmap page"
+                    aria-label="Open web beatmap page"
                     onClick={(e) => {
                       e.stopPropagation()
                       onOpenBeatmapPage()
@@ -186,7 +186,7 @@ export default function MetadataEditor({
               </Badge>
             )}
           </Group>
-          <Text size="sm" c="dimmed">
+          <Text size="sm" c="dimmed" className="mv-font-difficulties">
             {selected.folderName} · {selected.diffCount} difficult
             {selected.diffCount === 1 ? 'y' : 'ies'}
             {selected.lastModifiedAt > 0
