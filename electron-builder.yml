@@ -34,7 +34,7 @@ nsis:
   createDesktopShortcut: always
   oneClick: false
   perMachine: false
-  allowToChangeInstallationDirectory: false
+  allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
 portable:
   artifactName: OsuMeta-${version}-portable.${ext}
