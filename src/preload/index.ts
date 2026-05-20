@@ -15,6 +15,7 @@ import type {
   SuggestRankedSourceRequest,
   TagSectionsExpanded
 } from '../shared/types'
+import type { UpdaterDialogAction, UpdaterDialogPayload } from '../shared/updater-dialog'
 
 const api = {
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('get-settings'),
@@ -78,6 +79,19 @@ const api = {
     ipcRenderer.on('updater:up-to-date', listener)
     return () => ipcRenderer.removeListener('updater:up-to-date', listener)
   },
+  onUpdaterDialog: (callback: (payload: UpdaterDialogPayload) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: UpdaterDialogPayload): void =>
+      callback(payload)
+    ipcRenderer.on('updater:dialog', listener)
+    return () => ipcRenderer.removeListener('updater:dialog', listener)
+  },
+  onUpdaterInstalling: (callback: () => void): (() => void) => {
+    const listener = (): void => callback()
+    ipcRenderer.on('updater:installing', listener)
+    return () => ipcRenderer.removeListener('updater:installing', listener)
+  },
+  respondToUpdaterDialog: (action: UpdaterDialogAction): Promise<void> =>
+    ipcRenderer.invoke('updater:respond', action),
   window: {
     minimize: (): void => ipcRenderer.send('window-minimize'),
     toggleMaximize: (): void => ipcRenderer.send('window-toggle-maximize'),

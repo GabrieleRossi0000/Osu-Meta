@@ -78,9 +78,8 @@ export default function SettingsModal({
             Updates
           </Text>
           <Text size="xs" c="dimmed" lh={1.5}>
-            On startup the app checks GitHub Releases. If a newer version exists, a system dialog with{' '}
-            <Text span fw={600}>Update now</Text> downloads the latest installer and updates your
-            install in place.
+            On startup the app checks GitHub Releases. If a newer version exists, you can download
+            the installer and update in place from the in-app prompt.
           </Text>
           <Button
             variant="light"

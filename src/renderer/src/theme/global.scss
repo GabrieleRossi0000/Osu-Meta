@@ -104,6 +104,56 @@
   letter-spacing: 0.02em;
 }
 
+.mv-difficulties-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  align-self: flex-start;
+  padding: 0.4rem 0.85rem 0.4rem 0.55rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--mantine-color-white) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mantine-color-white) 16%, transparent);
+  color: var(--mantine-color-gray-2);
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease,
+    transform 160ms ease,
+    box-shadow 160ms ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--mantine-color-white) 14%, transparent);
+    border-color: color-mix(in srgb, var(--mantine-color-white) 26%, transparent);
+    color: var(--mantine-color-bright);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+}
+
+.mv-difficulties-toggle-label {
+  letter-spacing: 0.03em;
+}
+
+/* Update modal */
+.mv-update-modal-versions {
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--mantine-radius-md);
+  background: color-mix(in srgb, var(--mantine-color-dark-6) 90%, var(--mantine-color-teal-9));
+  border: 1px solid color-mix(in srgb, var(--mantine-color-teal-6) 22%, transparent);
+}
+
+.mv-update-modal-installing {
+  border: 1px solid color-mix(in srgb, var(--mantine-color-blue-6) 30%, transparent);
+}
+
+.mv-update-modal-error {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
 /* Up-to-date pill (bottom-right, after update check) */
 .mv-up-to-date-pill {
   position: fixed;

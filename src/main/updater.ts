@@ -1,19 +1,22 @@
-import { app, BrowserWindow, dialog, shell } from 'electron'
+import { app, shell } from 'electron'
 import { mkdir, writeFile } from 'fs/promises'
 import { dirname, join } from 'path'
 import { spawn } from 'child_process'
 import log from 'electron-log'
+import type { UpdaterDialogAction } from '../shared/updater-dialog'
+import {
+  notifyUpdaterInstalling,
+  notifyUpdaterUpToDate,
+  resolveUpdaterDialog,
+  showUpdaterDialog
+} from './updater-dialog'
 
 const GITHUB_OWNER = 'GabrieleRossi0000'
 const GITHUB_REPO = 'Osu-Meta'
+const RELEASES_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`
 const SETUP_ASSET_RE = /^OsuMeta-[\d.]+-setup\.exe$/i
 
 let checkInFlight = false
-
-function getWindow(): BrowserWindow | null {
-  const win = BrowserWindow.getAllWindows()[0]
-  return win && !win.isDestroyed() ? win : null
-}
 
 function parseReleaseVersion(tagName: string): string {
   return tagName.trim().replace(/^v/i, '')
@@ -96,60 +99,54 @@ async function runInstaller(installerPath: string): Promise<void> {
   })
 }
 
-async function notifyUpToDate(manual: boolean): Promise<void> {
-  getWindow()?.webContents.send('updater:up-to-date')
-  if (!manual) return
+async function handleDialogAction(action: UpdaterDialogAction): Promise<void> {
+  if (action === 'open-releases') {
+    await shell.openExternal(RELEASES_URL)
+  }
+}
 
-  const win = getWindow()
-  await dialog.showMessageBox({
-    ...(win ? { browserWindow: win } : {}),
-    type: 'info',
-    title: 'No updates',
-    message: `You are on the latest version (${app.getVersion()}).`,
-    buttons: ['OK']
-  })
+async function notifyUpToDate(manual: boolean): Promise<void> {
+  const currentVersion = app.getVersion()
+
+  if (manual) {
+    const action = await showUpdaterDialog({ kind: 'up-to-date', currentVersion })
+    await handleDialogAction(action)
+    return
+  }
+
+  notifyUpdaterUpToDate()
 }
 
 async function promptAndInstallUpdate(latestVersion: string, downloadUrl: string): Promise<void> {
-  const win = getWindow()
-  const { response } = await dialog.showMessageBox({
-    ...(win ? { browserWindow: win } : {}),
-    type: 'info',
-    title: 'Update available',
-    message: `Osu Meta ${latestVersion} is available.`,
-    detail:
-      'Download and install now? Your existing installation will be updated in place and the app will restart.',
-    buttons: ['Update now', 'Later'],
-    defaultId: 0,
-    cancelId: 1,
-    noLink: true
+  const currentVersion = app.getVersion()
+  const action = await showUpdaterDialog({
+    kind: 'available',
+    latestVersion,
+    currentVersion
   })
 
-  if (response !== 0) return
+  if (action === 'later' || action === 'dismiss') return
+  if (action === 'open-releases') {
+    await shell.openExternal(RELEASES_URL)
+    return
+  }
 
   const installerPath = join(app.getPath('temp'), `OsuMeta-${latestVersion}-setup.exe`)
 
   try {
+    notifyUpdaterInstalling(latestVersion)
     await downloadSetupInstaller(downloadUrl, installerPath)
     await runInstaller(installerPath)
     app.quit()
   } catch (error) {
     log.error('[updater] install failed', error)
-    const { response: action } = await dialog.showMessageBox({
-      ...(win ? { browserWindow: win } : {}),
-      type: 'error',
-      title: 'Update failed',
-      message: 'Could not download or run the installer.',
-      detail:
-        error instanceof Error
-          ? `${error.message}\n\nYou can download the installer manually from GitHub Releases.`
-          : String(error),
-      buttons: ['Open releases page', 'OK'],
-      defaultId: 0
-    })
-    if (action === 0) {
-      void shell.openExternal(`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`)
-    }
+    const message =
+      error instanceof Error
+        ? `${error.message}\n\nYou can download the installer manually from GitHub Releases.`
+        : String(error)
+
+    const failAction = await showUpdaterDialog({ kind: 'install-failed', message })
+    await handleDialogAction(failAction)
   }
 }
 
@@ -181,18 +178,12 @@ async function runUpdateCheck(manual: boolean): Promise<void> {
   } catch (error) {
     log.warn('[updater] check failed', error)
     if (manual) {
-      const win = getWindow()
-      await dialog.showMessageBox({
-        ...(win ? { browserWindow: win } : {}),
-        type: 'warning',
-        title: 'Update check failed',
-        message: 'Could not check for updates.',
-        detail:
-          error instanceof Error
-            ? `${error.message}\n\nYou can download the latest installer from GitHub Releases.`
-            : String(error),
-        buttons: ['OK']
-      })
+      const message =
+        error instanceof Error
+          ? `${error.message}\n\nYou can download the latest installer from GitHub Releases.`
+          : String(error)
+      const action = await showUpdaterDialog({ kind: 'check-failed', message })
+      await handleDialogAction(action)
     }
   } finally {
     checkInFlight = false
@@ -215,3 +206,5 @@ export function checkForUpdatesNow(): Promise<void> {
   }
   return runUpdateCheck(true)
 }
+
+export { resolveUpdaterDialog }

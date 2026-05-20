@@ -17,6 +17,7 @@ import type {
   CurrentBeatmapLookupResult,
   TagSectionsExpanded
 } from '@shared/types'
+import type { UpdaterDialogAction, UpdaterDialogPayload } from '@shared/updater-dialog'
 
 interface WindowApi {
   getSettings: () => Promise<AppSettings>
@@ -53,6 +54,9 @@ interface WindowApi {
   confirmAppClose: () => Promise<void>
   onRequestCloseConfirm: (callback: () => void) => () => void
   onUpdaterUpToDate: (callback: () => void) => () => void
+  onUpdaterDialog: (callback: (payload: UpdaterDialogPayload) => void) => () => void
+  onUpdaterInstalling: (callback: () => void) => () => void
+  respondToUpdaterDialog: (action: UpdaterDialogAction) => Promise<void>
   window: {
     minimize: () => void
     toggleMaximize: () => void

@@ -8,7 +8,7 @@ interface DifficultyListProps {
 }
 
 export default function DifficultyList({ difficulties }: DifficultyListProps): JSX.Element | null {
-  const [open, setOpen] = useState(true)
+  const [open, setOpen] = useState(false)
 
   const sorted = useMemo(
     () =>
@@ -23,18 +23,12 @@ export default function DifficultyList({ difficulties }: DifficultyListProps): J
   return (
     <Box mt="sm">
       <UnstyledButton
-        className={`mv-chevron-btn${open ? ' mv-chevron-btn--open' : ''}`}
+        className={`mv-difficulties-toggle mv-chevron-btn${open ? ' mv-chevron-btn--open' : ''}`}
         onClick={() => setOpen((value) => !value)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          width: '100%',
-          color: 'var(--mantine-color-dimmed)'
-        }}
+        aria-expanded={open}
       >
         <IconChevronRight size={16} stroke={2.75} className="mv-chevron-icon" />
-        <Text size="xs" c="dimmed" className="mv-font-difficulties">
+        <Text size="sm" fw={600} className="mv-font-difficulties mv-difficulties-toggle-label">
           Difficulties ({sorted.length})
         </Text>
       </UnstyledButton>

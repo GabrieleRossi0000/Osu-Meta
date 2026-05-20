@@ -53,6 +53,7 @@ import MetadataEditor from './components/metadata/MetadataEditor'
 import ImportMetadataModal, { applyMetadataImport } from './components/metadata/ImportMetadataModal'
 import SettingsButton from './components/settings/SettingsButton'
 import UpToDatePill from './components/common/UpToDatePill'
+import UpdateModal from './components/settings/UpdateModal'
 import WindowBar from './components/window/WindowBar'
 import logoUrl from './assets/logo.png'
 import { theme } from './theme/Theme'
@@ -978,6 +979,7 @@ export default function App(): JSX.Element {
     <MantineProvider defaultColorScheme="dark" theme={theme} cssVariablesResolver={cssVarResolver}>
       <Notifications classNames={{ root: 'mv-notifications-root' }} position="top-center" />
       <UpToDatePill />
+      <UpdateModal />
       <WindowBar osuRunning={osuRunning} />
       {loading ? (
         <Center h="100vh">
