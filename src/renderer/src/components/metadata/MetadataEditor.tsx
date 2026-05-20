@@ -184,7 +184,7 @@ export default function MetadataEditor({
 
   if (loading) {
     return (
-      <Stack gap="md" className="mv-content-enter mv-skeleton-shimmer">
+      <Stack gap="md" className="mv-beatmap-panel-stagger mv-skeleton-shimmer">
         <Skeleton height={160} radius="md" />
         <Paper p="md" radius="md" bg={theme.colors.dark[5]} className="mv-paper-surface">
           <Skeleton height={22} width="35%" mb="lg" />
@@ -199,7 +199,7 @@ export default function MetadataEditor({
   }
 
   return (
-    <Stack gap="md" className="mv-content-enter">
+    <Stack gap="md" className="mv-beatmap-panel-stagger">
       <Paper
         p={0}
         radius="md"

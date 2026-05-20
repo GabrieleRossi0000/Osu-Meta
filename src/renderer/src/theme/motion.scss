@@ -1,4 +1,4 @@
-/* OsuMeta motion tokens & utilities — import from global.scss */
+/* OsuMeta motion tokens & utilities — loaded after global.scss from App.tsx */
 
 :root {
   --mv-ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
@@ -8,6 +8,11 @@
   --mv-dur-panel: 280ms;
   --mv-dur-hero: 360ms;
   --mv-stagger-step: 40ms;
+}
+
+/* Clip panel slide so it does not cause horizontal scroll */
+.mv-app-main-panel {
+  overflow: hidden;
 }
 
 /* —— Ambient shell —— */
@@ -26,25 +31,54 @@
   }
 }
 
-/* —— Route / editor enter —— */
-.mv-route-outlet-wrap {
-  animation: mv-route-enter var(--mv-dur-ui) var(--mv-ease-out);
+/* —— Beatmap editor panel (sidebar selection → main area) —— */
+.mv-route-outlet-wrap,
+.mv-beatmap-panel-enter {
+  animation: mv-beatmap-panel-enter var(--mv-dur-hero) var(--mv-ease-spring) both;
+  transform-origin: top left;
 }
 
-@keyframes mv-route-enter {
-  from {
-    opacity: 0.55;
-    transform: translateY(10px);
+@keyframes mv-beatmap-panel-enter {
+  0% {
+    opacity: 0;
+    transform: translateX(-20px) translateY(10px) scale(0.98);
   }
 
-  to {
+  65% {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(2px) translateY(0) scale(1.002);
   }
+
+  100% {
+    opacity: 1;
+    transform: translateX(0) translateY(0) scale(1);
+  }
+}
+
+/* Stagger editor blocks after the panel slides in */
+.mv-beatmap-panel-stagger > * {
+  animation: mv-stagger-item var(--mv-dur-panel) var(--mv-ease-spring) both;
+  animation-delay: calc(120ms + (var(--mv-stagger-index, 0) * var(--mv-stagger-step)));
+}
+
+.mv-beatmap-panel-stagger > *:nth-child(1) {
+  --mv-stagger-index: 0;
+}
+
+.mv-beatmap-panel-stagger > *:nth-child(2) {
+  --mv-stagger-index: 1;
+}
+
+.mv-beatmap-panel-stagger > *:nth-child(3) {
+  --mv-stagger-index: 2;
 }
 
 .mv-editor-hero {
   overflow: hidden;
+}
+
+.mv-beatmap-panel-enter .mv-editor-hero__bg {
+  animation-delay: 100ms;
 }
 
 .mv-editor-hero__bg {
@@ -566,6 +600,8 @@
   }
 
   .mv-route-outlet-wrap,
+  .mv-beatmap-panel-enter,
+  .mv-beatmap-panel-stagger > *,
   .mv-stagger-children > *,
   .mv-step-enter--forward,
   .mv-step-enter--back,

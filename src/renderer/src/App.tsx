@@ -68,6 +68,7 @@ const appModalProps = {
 import '@mantine/core/styles.css'
 import '@mantine/notifications/styles.css'
 import './theme/global.scss'
+import './theme/motion.scss'
 
 const cssVarResolver: CSSVariablesResolver = () => ({
   variables: {},
@@ -748,9 +749,9 @@ function MainScreen({
             type="always"
             h="calc(100vh - var(--app-shell-header-offset, 0rem) + var(--app-shell-padding))"
           >
-            <Container p="sm" fluid maw={720}>
+            <Container p="sm" fluid maw={720} className="mv-app-main-panel">
               {selected ? (
-                <div key={selected.folderPath} className="mv-route-outlet-wrap">
+                <div key={selected.folderPath} className="mv-beatmap-panel-enter">
                 <MetadataEditor
                   selected={selected}
                   metadata={metadata}

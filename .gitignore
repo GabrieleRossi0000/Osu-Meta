@@ -1,6 +1,7 @@
 node_modules
 dist
 out
+.env
 .mv-ref
 .DS_Store
 *.log*

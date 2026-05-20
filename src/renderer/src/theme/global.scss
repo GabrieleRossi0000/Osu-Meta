@@ -761,6 +761,8 @@
   }
 
   .mv-route-outlet-wrap,
+  .mv-beatmap-panel-enter,
+  .mv-beatmap-panel-stagger > *,
   .mv-content-enter,
   .mv-step-enter {
     animation: none;
@@ -786,5 +788,3 @@
     background: rgba(6, 10, 18, 0.78) !important;
   }
 }
-
-@import './motion.scss';
