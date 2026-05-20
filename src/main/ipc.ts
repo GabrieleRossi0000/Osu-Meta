@@ -2,7 +2,13 @@ import { app, BrowserWindow, dialog, ipcMain } from 'electron'
 import { existsSync } from 'fs'
 import { scanBeatmapSets, isDirectory } from './beatmap-scanner'
 import { lookupCurrentBeatmap } from './current-beatmap'
-import { loadSetMetadata, saveSetMetadata } from './metadata-service'
+import { coerceSaveMetadataPayload } from '../shared/metadata-utils'
+import {
+  loadSetMetadata,
+  loadImportSourceFromBeatmapSetId,
+  loadMetadataFromBeatmapSetId,
+  saveSetMetadata
+} from './metadata-service'
 import { isOsuProcessRunning } from './osu-process'
 import { openBeatmapFolder } from './open-beatmap'
 import { checkBeatmapSetOnline } from './beatmap-set-online'
@@ -20,9 +26,16 @@ import {
   setSidebarWidth,
   setTagSectionsExpanded
 } from './settings'
-import type { BeatmapComboColour, BeatmapMetadata, BeatmapSetSummary, SuggestRankedSourceRequest, TagSectionsExpanded } from '../shared/types'
+import type {
+  BeatmapComboColour,
+  BeatmapMetadata,
+  BeatmapSetSummary,
+  SaveMetadataPayload,
+  SuggestRankedSourceRequest,
+  TagSectionsExpanded
+} from '../shared/types'
 import { suggestRankedSource } from './source-suggestion-service'
-import { isOsuApiConfigured } from './osu-api-client'
+import { isOsuApiConfigured, searchBeatmapsetsOnOsu } from './osu-api-client'
 
 const closeBlockedByRenderer = new WeakMap<BrowserWindow, boolean>()
 
@@ -78,10 +91,32 @@ export function registerIpcHandlers(): void {
     return loadSetMetadata(folderPath)
   })
 
+  ipcMain.handle('load-metadata-from-beatmap-set', async (_event, beatmapSetId: number) => {
+    return loadMetadataFromBeatmapSetId(beatmapSetId)
+  })
+
+  ipcMain.handle('load-import-source-from-beatmap-set', async (_event, beatmapSetId: number) => {
+    return loadImportSourceFromBeatmapSetId(beatmapSetId)
+  })
+
+  ipcMain.handle('search-beatmapsets-on-osu', async (_event, query: string) => {
+    return searchBeatmapsetsOnOsu(query)
+  })
+
   ipcMain.handle(
     'save-metadata',
-    (_event, folderPath: string, metadata: BeatmapMetadata, comboColours: BeatmapComboColour[]) => {
-      return saveSetMetadata(folderPath, metadata, comboColours ?? [])
+    (
+      _event,
+      folderPath: string,
+      payload: SaveMetadataPayload,
+      comboColours?: BeatmapComboColour[],
+      savedMetadata?: BeatmapMetadata,
+      savedComboColours?: BeatmapComboColour[]
+    ) => {
+      return saveSetMetadata(
+        folderPath,
+        coerceSaveMetadataPayload(payload, comboColours, savedMetadata, savedComboColours)
+      )
     }
   )
 

@@ -2,13 +2,15 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
-  BeatmapComboColour,
   BeatmapMetadata,
   BeatmapSetSummary,
   CurrentBeatmapLookupResult,
   DetectedPath,
+  ImportSourceData,
   LoadedMetadata,
+  OsuBeatmapsetSearchHit,
   RankedSourceSuggestionResult,
+  SaveMetadataPayload,
   SaveMetadataResult,
   SuggestRankedSourceRequest,
   TagSectionsExpanded
@@ -25,12 +27,14 @@ const api = {
     ipcRenderer.invoke('scan-beatmaps', force),
   loadMetadata: (folderPath: string): Promise<LoadedMetadata> =>
     ipcRenderer.invoke('load-metadata', folderPath),
-  saveMetadata: (
-    folderPath: string,
-    metadata: BeatmapMetadata,
-    comboColours: BeatmapComboColour[]
-  ): Promise<SaveMetadataResult> =>
-    ipcRenderer.invoke('save-metadata', folderPath, metadata, comboColours),
+  loadMetadataFromBeatmapSet: (beatmapSetId: number): Promise<BeatmapMetadata> =>
+    ipcRenderer.invoke('load-metadata-from-beatmap-set', beatmapSetId),
+  loadImportSourceFromBeatmapSet: (beatmapSetId: number): Promise<ImportSourceData> =>
+    ipcRenderer.invoke('load-import-source-from-beatmap-set', beatmapSetId),
+  searchBeatmapsetsOnOsu: (query: string): Promise<OsuBeatmapsetSearchHit[]> =>
+    ipcRenderer.invoke('search-beatmapsets-on-osu', query),
+  saveMetadata: (folderPath: string, payload: SaveMetadataPayload): Promise<SaveMetadataResult> =>
+    ipcRenderer.invoke('save-metadata', folderPath, payload),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('get-app-version'),
   lookupCurrentBeatmap: (beatmaps?: BeatmapSetSummary[]): Promise<CurrentBeatmapLookupResult> =>
     ipcRenderer.invoke('lookup-current-beatmap', beatmaps),

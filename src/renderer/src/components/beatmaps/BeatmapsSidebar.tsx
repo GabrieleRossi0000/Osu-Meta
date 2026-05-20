@@ -15,7 +15,7 @@ import {
   IconSearchOff
 } from '@tabler/icons-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { memo, useCallback, useMemo, useRef, type RefObject } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from 'react'
 import type { BeatmapSetSummary } from '@shared/types'
 import BeatmapCard from './BeatmapCard'
 
@@ -30,6 +30,7 @@ interface BeatmapsSidebarProps {
   songsConfigured: boolean
   selectedFolderPath: string | null
   highlightedFolderPath: string | null
+  dirtyFolderPath: string | null
   search: string
   onSearchChange: (value: string) => void
   searchInputRef?: RefObject<HTMLInputElement>
@@ -38,6 +39,7 @@ interface BeatmapsSidebarProps {
   onFetchCurrent: () => void
   fetchingCurrent: boolean
   fetchNotice: string | null
+  onDismissFetchNotice: () => void
 }
 
 function BeatmapsSidebar({
@@ -47,6 +49,7 @@ function BeatmapsSidebar({
   songsConfigured,
   selectedFolderPath,
   highlightedFolderPath,
+  dirtyFolderPath,
   search,
   onSearchChange,
   searchInputRef,
@@ -54,7 +57,8 @@ function BeatmapsSidebar({
   onRefresh,
   onFetchCurrent,
   fetchingCurrent,
-  fetchNotice
+  fetchNotice,
+  onDismissFetchNotice
 }: BeatmapsSidebarProps): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -84,6 +88,19 @@ function BeatmapsSidebar({
     overscan: 8
   })
 
+  const scrollTargetPath = highlightedFolderPath ?? selectedFolderPath
+
+  useEffect(() => {
+    if (!scrollTargetPath || filteredBeatmaps.length === 0) return
+    const index = filteredBeatmaps.findIndex((bm) => bm.folderPath === scrollTargetPath)
+    if (index < 0) return
+    virtualizer.scrollToIndex(index, {
+      align: 'center',
+      behavior: highlightedFolderPath ? 'smooth' : 'auto'
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- scroll when selection/highlight changes
+  }, [scrollTargetPath, filteredBeatmaps, highlightedFolderPath])
+
   const emptyLibrary = !loading && songsConfigured && totalBeatmapCount === 0
   const noResults =
     !loading && totalBeatmapCount > 0 && filteredBeatmaps.length === 0 && search.trim().length > 0
@@ -100,7 +117,7 @@ function BeatmapsSidebar({
           <TextInput
             className="mv-search-input"
             ref={searchInputRef}
-            placeholder="Search beatmaps..."
+            placeholder="Search name or set ID..."
             value={search}
             onChange={(e) => onSearchChange(e.currentTarget.value)}
             rightSectionPointerEvents="all"
@@ -113,7 +130,11 @@ function BeatmapsSidebar({
             }
             style={{ flex: 1 }}
           />
-          <Tooltip label="Fetch the map selected in osu! (song select or editor)">
+          <Tooltip
+            label="Fetch the map selected in osu! (Ctrl+Shift+F)"
+            multiline
+            w={220}
+          >
             <ActionIcon
               variant="default"
               onClick={onFetchCurrent}
@@ -124,7 +145,7 @@ function BeatmapsSidebar({
               <IconDownload size={16} />
             </ActionIcon>
           </Tooltip>
-          <Tooltip label="Rescan Songs folder (Shift+click for full rescan)">
+          <Tooltip label="Rescan Songs folder (Shift+click for full rescan)" multiline w={220}>
             <ActionIcon
               variant="default"
               onClick={(event) => onRefresh(event.shiftKey)}
@@ -138,7 +159,14 @@ function BeatmapsSidebar({
         </Flex>
 
         {fetchNotice && (
-          <Alert color="yellow" variant="light" title="Current map">
+          <Alert
+            color="yellow"
+            variant="light"
+            title="Current map"
+            className="mv-alert-slide-down"
+            withCloseButton
+            onClose={onDismissFetchNotice}
+          >
             {fetchNotice}
           </Alert>
         )}
@@ -167,7 +195,7 @@ function BeatmapsSidebar({
         style={{ flex: '1 1 auto', minHeight: 0, overflow: 'auto' }}
       >
         {loading && totalBeatmapCount === 0 ? (
-          <Flex direction="column" gap={CARD_GAP} px="xs" pt={CARD_GAP} pb={CARD_GAP}>
+          <Flex direction="column" gap={CARD_GAP} px="xs" pt={CARD_GAP} pb={CARD_GAP} className="mv-skeleton-shimmer">
             {Array.from({ length: 6 }, (_, index) => (
               <Skeleton key={index} height={CARD_HEIGHT} radius="md" />
             ))}
@@ -200,6 +228,7 @@ function BeatmapsSidebar({
                     beatmap={bm}
                     isSelected={selectedFolderPath === bm.folderPath}
                     isHighlighted={highlightedFolderPath === bm.folderPath}
+                    isDirty={dirtyFolderPath === bm.folderPath}
                     onSelectFolder={onSelectFolder}
                   />
                 </div>

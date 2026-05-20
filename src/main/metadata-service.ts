@@ -3,10 +3,27 @@ import {
   getRomanizedFieldLocks
 } from '../shared/romanization'
 import { comboColoursEqual } from '../shared/combo-colours'
-import { metadataEquals } from '../shared/metadata-utils'
-import type { BeatmapComboColour, BeatmapMetadata, LoadedMetadata, SaveMetadataResult } from '../shared/types'
+import {
+  coerceSaveMetadataPayload,
+  getDirtyMetadataFields,
+  getMismatchedMetadataFields,
+  metadataEquals
+} from '../shared/metadata-utils'
+import type {
+  BeatmapMetadata,
+  ImportSourceData,
+  LoadedMetadata,
+  SaveMetadataPayload,
+  SaveMetadataResult
+} from '../shared/types'
 import { getOsuFilesInSet } from './beatmap-scanner'
 import { inspectOsuBeatmapSet } from './beatmap-set-online'
+import { downloadBeatmapOsuText } from './osu-beatmap-download'
+import { fetchBeatmapsetFromApi, fetchFirstBeatmapIdFromSet, isOsuApiConfigured } from './osu-api-client'
+import {
+  fetchBeatmapsetFromWebPage,
+  webBeatmapsetToMetadata
+} from './osu-beatmapset-web'
 import { resolveBeatmapSetId } from '../shared/beatmap-set-id'
 import { basename } from 'path'
 import { readDifficultySummaryFromText } from './osu-difficulty'
@@ -18,7 +35,7 @@ import {
   readOsuFileText,
   readVersionFromContent,
   updateComboColoursInFile,
-  updateMetadataInFile
+  updateMetadataFieldsInFile
 } from './osu-file'
 
 export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadata> {
@@ -70,6 +87,7 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
   return {
     metadata,
     mismatched,
+    mismatchedFields: getMismatchedMetadataFields(metadatas),
     comboColours: primaryCombo,
     comboColoursMismatched,
     diffCount: osuFiles.length,
@@ -83,23 +101,90 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
   }
 }
 
+async function loadMetadataFromBeatmapSetIdInternal(beatmapSetId: number): Promise<BeatmapMetadata> {
+  if (beatmapSetId <= 0) {
+    throw new Error('Invalid beatmap set id.')
+  }
+
+  const fromWeb = await fetchBeatmapsetFromWebPage(beatmapSetId)
+  if (fromWeb) {
+    const metadata = webBeatmapsetToMetadata(fromWeb)
+    return applyRomanizedFieldLocks(metadata, getRomanizedFieldLocks(metadata))
+  }
+
+  if (isOsuApiConfigured()) {
+    const fromApi = await fetchBeatmapsetFromApi(beatmapSetId)
+    if (fromApi) {
+      const metadata: BeatmapMetadata = {
+        artist: fromApi.artist,
+        artistUnicode: fromApi.artistUnicode ?? fromApi.artist,
+        title: fromApi.title,
+        titleUnicode: fromApi.titleUnicode ?? fromApi.title,
+        source: fromApi.source ?? '',
+        tags: fromApi.tags
+      }
+      return applyRomanizedFieldLocks(metadata, getRomanizedFieldLocks(metadata))
+    }
+  }
+
+  throw new Error('Could not load metadata from osu!.')
+}
+
+export async function loadMetadataFromBeatmapSetId(beatmapSetId: number): Promise<BeatmapMetadata> {
+  return loadMetadataFromBeatmapSetIdInternal(beatmapSetId)
+}
+
+export async function loadImportSourceFromBeatmapSetId(
+  beatmapSetId: number
+): Promise<ImportSourceData> {
+  const metadata = await loadMetadataFromBeatmapSetIdInternal(beatmapSetId)
+  const beatmapId = await fetchFirstBeatmapIdFromSet(beatmapSetId)
+  if (beatmapId == null) {
+    return { metadata, comboColours: [] }
+  }
+
+  const osuText = await downloadBeatmapOsuText(beatmapId)
+  if (!osuText) {
+    return { metadata, comboColours: [] }
+  }
+
+  return {
+    metadata,
+    comboColours: readComboColoursFromContent(osuText)
+  }
+}
+
 export function saveSetMetadata(
   folderPath: string,
-  metadata: BeatmapMetadata,
-  comboColours: BeatmapComboColour[]
+  payload: SaveMetadataPayload
 ): SaveMetadataResult {
   const osuFiles = getOsuFilesInSet(folderPath)
   if (osuFiles.length === 0) {
     throw new Error('No .osu files found in this beatmap folder.')
   }
 
-  const locks = getRomanizedFieldLocks(metadata)
-  const normalized = applyRomanizedFieldLocks(metadata, locks)
+  const save = coerceSaveMetadataPayload(payload)
+  const locks = getRomanizedFieldLocks(save.metadata)
+  const normalized = applyRomanizedFieldLocks(save.metadata, locks)
+  const dirtyFields = getDirtyMetadataFields(normalized, save.savedMetadata)
+  const comboDirty = !comboColoursEqual(save.comboColours, save.savedComboColours)
 
-  for (const filePath of osuFiles) {
-    updateMetadataInFile(filePath, normalized)
-    updateComboColoursInFile(filePath, comboColours)
+  if (dirtyFields.length === 0 && !comboDirty) {
+    return { updatedFiles: 0, updatedMetadataFields: [], updatedComboColours: false }
   }
 
-  return { updatedFiles: osuFiles.length }
+  for (const filePath of osuFiles) {
+    if (dirtyFields.length > 0) {
+      updateMetadataFieldsInFile(filePath, normalized, dirtyFields)
+    }
+    if (comboDirty) {
+      updateComboColoursInFile(filePath, save.comboColours)
+    }
+  }
+
+  return {
+    updatedFiles: osuFiles.length,
+    updatedMetadataFields: dirtyFields,
+    updatedComboColours: comboDirty
+  }
 }

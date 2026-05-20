@@ -56,6 +56,7 @@ export default function ComboColoursEditor({ colours, onChange }: ComboColoursEd
         colours.map((c, index) => (
           <Paper
             key={index}
+            className="mv-combo-row"
             p="sm"
             radius="md"
             bg="rgba(255,255,255,0.02)"

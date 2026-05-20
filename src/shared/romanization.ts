@@ -10,16 +10,20 @@ export interface RomanizedFieldLocks {
 }
 
 /** True when the text is already Latin/romanized (no CJK, Arabic, Cyrillic, etc.). */
-export function isAlreadyRomanized(text: string): boolean {
-  const trimmed = text.trim()
+export function isAlreadyRomanized(text: string | null | undefined): boolean {
+  const trimmed = (text ?? '').trim()
   if (!trimmed) return true
   return !NON_LATIN_SCRIPT.test(trimmed)
 }
 
 export function getRomanizedFieldLocks(metadata: BeatmapMetadata): RomanizedFieldLocks {
+  const normalized = {
+    artistUnicode: metadata.artistUnicode ?? '',
+    titleUnicode: metadata.titleUnicode ?? ''
+  }
   return {
-    artist: isAlreadyRomanized(metadata.artistUnicode),
-    title: isAlreadyRomanized(metadata.titleUnicode)
+    artist: isAlreadyRomanized(normalized.artistUnicode),
+    title: isAlreadyRomanized(normalized.titleUnicode)
   }
 }
 
@@ -27,9 +31,15 @@ export function applyRomanizedFieldLocks(
   metadata: BeatmapMetadata,
   locks: RomanizedFieldLocks
 ): BeatmapMetadata {
+  const artistUnicode = metadata.artistUnicode ?? ''
+  const titleUnicode = metadata.titleUnicode ?? ''
   return {
     ...metadata,
-    artist: locks.artist ? metadata.artistUnicode : metadata.artist,
-    title: locks.title ? metadata.titleUnicode : metadata.title
+    artistUnicode,
+    titleUnicode,
+    artist: locks.artist ? artistUnicode : (metadata.artist ?? ''),
+    title: locks.title ? titleUnicode : (metadata.title ?? ''),
+    source: metadata.source ?? '',
+    tags: metadata.tags ?? ''
   }
 }

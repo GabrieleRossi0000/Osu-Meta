@@ -55,7 +55,7 @@ export default function WindowBar({ osuRunning = false }: WindowBarProps): JSX.E
         <img
           src={logoUrl}
           alt="OsuMeta"
-          className="mv-logo"
+          className="mv-logo mv-logo-interactive"
           draggable={false}
           style={{
             ...dragStyle,
@@ -64,6 +64,7 @@ export default function WindowBar({ osuRunning = false }: WindowBarProps): JSX.E
         />
         <Tooltip label={osuRunning ? 'osu! is running' : 'osu! is not running'}>
           <Box
+            className={osuRunning ? 'mv-osu-dot mv-osu-dot--live' : 'mv-osu-dot'}
             style={{
               width: 8,
               height: 8,
@@ -123,6 +124,7 @@ export default function WindowBar({ osuRunning = false }: WindowBarProps): JSX.E
         <ActionIcon
           variant="subtle"
           color="red"
+          className="mv-window-close"
           aria-label="Close"
           onClick={() => window.api.window.close()}
           style={{ ...noDragStyle, height: '100%', width: 36, borderRadius: 0 }}

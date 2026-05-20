@@ -1,5 +1,5 @@
 import { Box, Collapse, Group, Text, UnstyledButton } from '@mantine/core'
-import { IconChevronDown, IconChevronRight } from '@tabler/icons-react'
+import { IconChevronRight } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
 import type { BeatmapDifficultySummary } from '@shared/types'
 
@@ -23,6 +23,7 @@ export default function DifficultyList({ difficulties }: DifficultyListProps): J
   return (
     <Box mt="sm">
       <UnstyledButton
+        className={`mv-chevron-btn${open ? ' mv-chevron-btn--open' : ''}`}
         onClick={() => setOpen((value) => !value)}
         style={{
           display: 'flex',
@@ -32,20 +33,16 @@ export default function DifficultyList({ difficulties }: DifficultyListProps): J
           color: 'var(--mantine-color-dimmed)'
         }}
       >
-        {open ? (
-          <IconChevronDown size={16} stroke={2.75} />
-        ) : (
-          <IconChevronRight size={16} stroke={2.75} />
-        )}
+        <IconChevronRight size={16} stroke={2.75} className="mv-chevron-icon" />
         <Text size="xs" c="dimmed" className="mv-font-difficulties">
           Difficulties ({sorted.length})
         </Text>
       </UnstyledButton>
 
       <Collapse in={open} transitionDuration={220}>
-        <Box mt={8} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <Box mt={8} className="mv-diff-list" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           {sorted.map((diff) => (
-            <Group key={diff.filename} gap="sm" wrap="nowrap">
+            <Group key={diff.filename} gap="sm" wrap="nowrap" className="mv-diff-row">
               <Box
                 w={28}
                 h={28}

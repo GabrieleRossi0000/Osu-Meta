@@ -17,13 +17,14 @@ import {
 } from '@mantine/core'
 import {
   IconAlertTriangle,
-  IconChevronDown,
   IconChevronRight,
   IconCopy,
   IconFolderOpen,
   IconWorld
 } from '@tabler/icons-react'
 import { useMemo, useState } from 'react'
+import { beatmapSetPageUrl, resolveBeatmapSetId } from '@shared/beatmap-set-id'
+import { formatDiscussionMetadataExport } from '@shared/discussion-metadata-export'
 import { getMetadataValidationIssues } from '@shared/metadata-validation'
 import { getRomanizedFieldLocks, isAlreadyRomanized } from '@shared/romanization'
 import type {
@@ -66,9 +67,11 @@ interface MetadataEditorProps {
   onChange: (metadata: BeatmapMetadata) => void
   onComboColoursChange: (colours: BeatmapComboColour[]) => void
   onSave: () => void
+  onRevert: () => void
   onOpenFolder: () => void
   onOpenBeatmapPage: () => void
   onOpenImportModal: () => void
+  importedWebBeatmapSetId: number | null
 }
 
 export default function MetadataEditor({
@@ -91,12 +94,17 @@ export default function MetadataEditor({
   onChange,
   onComboColoursChange,
   onSave,
+  onRevert,
   onOpenFolder,
   onOpenBeatmapPage,
-  onOpenImportModal
+  onOpenImportModal,
+  importedWebBeatmapSetId
 }: MetadataEditorProps): JSX.Element {
   const theme = useMantineTheme()
   const [comboOpen, setComboOpen] = useState(false)
+  const [discussionCopied, setDiscussionCopied] = useState(false)
+  const [importLinkCopied, setImportLinkCopied] = useState(false)
+  const [setIdCopied, setSetIdCopied] = useState(false)
   const { artist: lockArtistRomanized, title: lockTitleRomanized } = useMemo(
     () => getRomanizedFieldLocks(metadata),
     [metadata.artistUnicode, metadata.titleUnicode]
@@ -108,6 +116,7 @@ export default function MetadataEditor({
   const displayTitle =
     metadata.titleUnicode.trim() || metadata.title.trim() || fallback.title
   const displaySource = metadata.source.trim()
+  const beatmapSetId = resolveBeatmapSetId(selected)
   const hasBg = Boolean(selected.backgroundImageUrl)
   const validationIssues = useMemo(
     () =>
@@ -129,9 +138,47 @@ export default function MetadataEditor({
     onChange(next)
   }
 
+  const copyDiscussionMetadata = async (): Promise<void> => {
+    const text = formatDiscussionMetadataExport(metadata)
+    try {
+      await navigator.clipboard.writeText(text)
+      setDiscussionCopied(true)
+      window.setTimeout(() => setDiscussionCopied(false), 2000)
+    } catch {
+      setDiscussionCopied(false)
+    }
+  }
+
+  const copyImportedWebLink = async (): Promise<void> => {
+    if (importedWebBeatmapSetId == null) return
+    try {
+      await navigator.clipboard.writeText(beatmapSetPageUrl(importedWebBeatmapSetId))
+      setImportLinkCopied(true)
+      window.setTimeout(() => setImportLinkCopied(false), 2000)
+    } catch {
+      setImportLinkCopied(false)
+    }
+  }
+
+  const copyBeatmapSetId = async (): Promise<void> => {
+    if (beatmapSetId == null) return
+    try {
+      await navigator.clipboard.writeText(String(beatmapSetId))
+      setSetIdCopied(true)
+      window.setTimeout(() => setSetIdCopied(false), 2000)
+    } catch {
+      setSetIdCopied(false)
+    }
+  }
+
+  const openImportedWebBeatmapPage = (): void => {
+    if (importedWebBeatmapSetId == null) return
+    void window.api.openBeatmapPage(importedWebBeatmapSetId)
+  }
+
   if (loading) {
     return (
-      <Stack gap="md" className="mv-content-enter">
+      <Stack gap="md" className="mv-content-enter mv-skeleton-shimmer">
         <Skeleton height={160} radius="md" />
         <Paper p="md" radius="md" bg={theme.colors.dark[5]} className="mv-paper-surface">
           <Skeleton height={22} width="35%" mb="lg" />
@@ -150,10 +197,11 @@ export default function MetadataEditor({
       <Paper
         p={0}
         radius="md"
-        className="mv-paper-surface"
+        className="mv-paper-surface mv-editor-hero"
         style={{ overflow: 'hidden', position: 'relative', minHeight: 140 }}
       >
         <Box
+          className="mv-editor-hero__bg"
           style={{
             position: 'absolute',
             inset: 0,
@@ -173,7 +221,7 @@ export default function MetadataEditor({
               'linear-gradient(180deg, rgba(15, 16, 20, 0.35) 0%, rgba(15, 16, 20, 0.92) 70%, var(--mantine-color-dark-7) 100%)'
           }}
         />
-        <Stack gap={4} p="md" style={{ position: 'relative', zIndex: 1 }}>
+        <Stack gap={4} p="md" className="mv-stagger-children" style={{ position: 'relative', zIndex: 1 }}>
           <Group gap="sm" wrap="nowrap">
             <Text
               fw={700}
@@ -221,13 +269,44 @@ export default function MetadataEditor({
               {displaySource}
             </Text>
           ) : null}
-          <Text size="sm" c="dimmed" className="mv-font-difficulties">
-            {selected.folderName} · {selected.diffCount} difficult
-            {selected.diffCount === 1 ? 'y' : 'ies'}
-            {selected.lastModifiedAt > 0
-              ? ` · Updated ${formatLastModified(selected.lastModifiedAt)}`
-              : ''}
-          </Text>
+          {creator.trim() ? (
+            <Text
+              size="sm"
+              c="dimmed"
+              style={{ textShadow: '0 1px 8px rgba(0,0,0,0.45)' }}
+            >
+              by {creator.trim()}
+            </Text>
+          ) : null}
+          <Group gap="xs" wrap="wrap">
+            {beatmapSetId != null ? (
+              <Tooltip label={setIdCopied ? 'Copied!' : 'Click to copy set ID'}>
+                <UnstyledButton
+                  className={setIdCopied ? 'mv-copy-flash' : undefined}
+                  onClick={() => void copyBeatmapSetId()}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    borderRadius: 6,
+                    padding: '2px 8px',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    color: setIdCopied ? 'var(--mantine-color-green-4)' : 'var(--mantine-color-dimmed)'
+                  }}
+                >
+                  <Text size="sm" fw={500} className="mv-font-difficulties">
+                    #{beatmapSetId}
+                  </Text>
+                </UnstyledButton>
+              </Tooltip>
+            ) : null}
+            <Text size="sm" c="dimmed" className="mv-font-difficulties">
+              {selected.folderName} · {selected.diffCount} difficult
+              {selected.diffCount === 1 ? 'y' : 'ies'}
+              {selected.lastModifiedAt > 0
+                ? ` · Updated ${formatLastModified(selected.lastModifiedAt)}`
+                : ''}
+            </Text>
+          </Group>
           {selected.hiddenDuplicateCount > 0 && (
             <Text size="xs" c="yellow">
               Showing the newest of {selected.hiddenDuplicateCount + 1} copies on disk (BeatmapSetID{' '}
@@ -250,12 +329,59 @@ export default function MetadataEditor({
           <Button variant="light" leftSection={<IconFolderOpen size={16} />} onClick={onOpenFolder}>
             Open folder
           </Button>
+          <Button variant="light" leftSection={<IconCopy size={16} />} onClick={onOpenImportModal}>
+            Import from mapset
+          </Button>
         </Group>
 
-        <Stack gap="md" component="form" onSubmit={(e) => { e.preventDefault(); onSave() }}>
+        {importedWebBeatmapSetId != null ? (
+          <Alert
+            variant="light"
+            color="blue"
+            mb="md"
+            icon={<IconWorld size={16} />}
+            className="mv-alert-slide-down"
+          >
+            <Group justify="space-between" wrap="nowrap" gap="sm">
+              <Text size="sm" style={{ flex: 1, minWidth: 0 }}>
+                Metadata imported from osu! website
+              </Text>
+              <Group gap={6} wrap="nowrap">
+                <Tooltip label="Open on osu!">
+                  <ActionIcon
+                    variant="light"
+                    size="sm"
+                    aria-label="Open on osu!"
+                    onClick={openImportedWebBeatmapPage}
+                  >
+                    <IconWorld size={14} />
+                  </ActionIcon>
+                </Tooltip>
+                <Tooltip label="Copy beatmap link">
+                  <ActionIcon
+                    variant="light"
+                    size="sm"
+                    aria-label="Copy beatmap link"
+                    onClick={() => void copyImportedWebLink()}
+                  >
+                    <IconCopy size={14} />
+                  </ActionIcon>
+                </Tooltip>
+                {importLinkCopied ? (
+                  <Text size="xs" c="green">
+                    Copied!
+                  </Text>
+                ) : null}
+              </Group>
+            </Group>
+          </Alert>
+        ) : null}
+
+        <Stack gap="md" className="mv-stagger-children" component="form" onSubmit={(e) => { e.preventDefault(); onSave() }}>
           {validationIssues.map((issue) => (
             <Alert
               key={issue.id}
+              className="mv-alert-enter"
               icon={<IconAlertTriangle />}
               color={issue.severity === 'error' ? 'red' : 'yellow'}
               variant="light"
@@ -267,7 +393,7 @@ export default function MetadataEditor({
             </Alert>
           ))}
 
-          <Box>
+          <Box className="mv-field-wrap">
             <Text size="xs" c="dimmed" mb={4}>
               Artist name
             </Text>
@@ -277,7 +403,7 @@ export default function MetadataEditor({
             />
           </Box>
 
-          <Box>
+          <Box className="mv-field-wrap">
             <Text size="xs" c="dimmed" mb={4}>
               Romanized artist name
             </Text>
@@ -288,7 +414,7 @@ export default function MetadataEditor({
             />
           </Box>
 
-          <Box>
+          <Box className="mv-field-wrap">
             <Text size="xs" c="dimmed" mb={4}>
               Song title
             </Text>
@@ -298,7 +424,7 @@ export default function MetadataEditor({
             />
           </Box>
 
-          <Box>
+          <Box className="mv-field-wrap">
             <Text size="xs" c="dimmed" mb={4}>
               Romanized song title
             </Text>
@@ -334,6 +460,7 @@ export default function MetadataEditor({
 
           <Box mt="md">
             <UnstyledButton
+              className={`mv-chevron-btn${comboOpen ? ' mv-chevron-btn--open' : ''}`}
               onClick={() => setComboOpen((value) => !value)}
               style={{
                 width: '100%',
@@ -345,11 +472,7 @@ export default function MetadataEditor({
             >
               <Group justify="space-between" wrap="nowrap">
                 <Group gap={8} wrap="nowrap">
-                  {comboOpen ? (
-                    <IconChevronDown size={16} stroke={2.75} />
-                  ) : (
-                    <IconChevronRight size={16} stroke={2.75} />
-                  )}
+                  <IconChevronRight size={16} stroke={2.75} className="mv-chevron-icon" />
                   <Text fw={600} size="sm">
                     Combo colours
                   </Text>
@@ -366,21 +489,41 @@ export default function MetadataEditor({
           </Box>
 
           <Group gap="sm" align="center">
-            <Button type="submit" loading={saving} className="mv-save-primary">
-              Save to all difficulties
+            <Button
+              type="submit"
+              loading={saving}
+              className={`mv-save-primary${isDirty ? ' mv-save-primary--dirty' : ''}`}
+            >
+              Save
             </Button>
-            <Tooltip label="Import metadata from another mapset">
+            {isDirty ? (
+              <Button variant="default" onClick={onRevert} disabled={saving}>
+                Revert
+              </Button>
+            ) : null}
+            <Tooltip
+              label="Copy metadata for the osu! discussion tab"
+              multiline
+              w={220}
+            >
               <ActionIcon
                 variant="light"
                 size="lg"
-                aria-label="Import metadata from another mapset"
-                onClick={onOpenImportModal}
+                aria-label="Copy for discussion"
+                onClick={() => void copyDiscussionMetadata()}
               >
                 <IconCopy size={18} />
               </ActionIcon>
             </Tooltip>
+            {discussionCopied ? (
+              <Text size="sm" c="green">
+                Copied!
+              </Text>
+            ) : null}
             {status && (
               <Text
+                key={status}
+                className="mv-status-line"
                 size="sm"
                 c={
                   status.startsWith('Updated')

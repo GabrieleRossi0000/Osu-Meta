@@ -1,6 +1,6 @@
 {
   "name": "osu-meta",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "OsuMeta!",
   "main": "./out/main/index.js",
   "author": "GabrieleRossi0000",
@@ -27,6 +27,7 @@
     "@kionell/osu-pp-calculator": "^4.0.0",
     "@mantine/core": "^8.3.8",
     "@mantine/hooks": "^8.3.8",
+    "@mantine/notifications": "^8.3.18",
     "@tabler/icons-react": "^3.35.0",
     "@tanstack/react-virtual": "^3.13.24",
     "dotenv": "^17.4.2",

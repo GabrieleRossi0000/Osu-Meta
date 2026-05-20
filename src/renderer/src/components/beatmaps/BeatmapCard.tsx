@@ -9,6 +9,7 @@ interface BeatmapCardProps {
   beatmap: BeatmapSetSummary
   isSelected: boolean
   isHighlighted: boolean
+  isDirty?: boolean
   variant?: BeatmapCardVariant
   onSelectFolder: (folderPath: string) => void
 }
@@ -21,6 +22,7 @@ function BeatmapCard({
   beatmap,
   isSelected,
   isHighlighted,
+  isDirty = false,
   variant = 'sidebar',
   onSelectFolder
 }: BeatmapCardProps): JSX.Element {
@@ -48,7 +50,13 @@ function BeatmapCard({
 
   return (
     <Flex
-      className="mv-beatmap-card"
+      className={[
+        'mv-beatmap-card',
+        isSelected ? 'mv-beatmap-card--selected' : '',
+        isHighlighted ? 'mv-beatmap-card--highlighted' : ''
+      ]
+        .filter(Boolean)
+        .join(' ')}
       w={isPicker ? PICKER_WIDTH : '100%'}
       h={isPicker ? PICKER_HEIGHT : SIDEBAR_HEIGHT}
       mx={isPicker ? 'auto' : undefined}
@@ -88,6 +96,7 @@ function BeatmapCard({
           transition: `transform ${transitionMs}`
         }}
       />
+      {isDirty && !isPicker ? <Box className="mv-beatmap-card-dirty-dot" aria-hidden /> : null}
       <Box
         style={{
           position: 'absolute',
@@ -145,6 +154,7 @@ export default memo(BeatmapCard, (prev, next) => {
     prev.beatmap.hiddenDuplicateCount === next.beatmap.hiddenDuplicateCount &&
     prev.isSelected === next.isSelected &&
     prev.isHighlighted === next.isHighlighted &&
+    prev.isDirty === next.isDirty &&
     prev.variant === next.variant &&
     prev.onSelectFolder === next.onSelectFolder
   )

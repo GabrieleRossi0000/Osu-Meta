@@ -5,8 +5,11 @@ import type {
   BeatmapSetSummary,
   CurrentBeatmapLookupResult,
   DetectedPath,
+  ImportSourceData,
   LoadedMetadata,
+  OsuBeatmapsetSearchHit,
   RankedSourceSuggestionResult,
+  SaveMetadataPayload,
   SaveMetadataResult,
   SuggestRankedSourceRequest,
   TagSectionsExpanded
@@ -20,11 +23,10 @@ export interface OsuMetaAPI {
   setSongsPath: (path: string) => Promise<string>
   scanBeatmaps: (force?: boolean) => Promise<BeatmapSetSummary[]>
   loadMetadata: (folderPath: string) => Promise<LoadedMetadata>
-  saveMetadata: (
-    folderPath: string,
-    metadata: BeatmapMetadata,
-    comboColours: BeatmapComboColour[]
-  ) => Promise<SaveMetadataResult>
+  loadMetadataFromBeatmapSet: (beatmapSetId: number) => Promise<BeatmapMetadata>
+  loadImportSourceFromBeatmapSet: (beatmapSetId: number) => Promise<ImportSourceData>
+  searchBeatmapsetsOnOsu: (query: string) => Promise<OsuBeatmapsetSearchHit[]>
+  saveMetadata: (folderPath: string, payload: SaveMetadataPayload) => Promise<SaveMetadataResult>
   getAppVersion: () => Promise<string>
   lookupCurrentBeatmap: (beatmaps?: BeatmapSetSummary[]) => Promise<CurrentBeatmapLookupResult>
   openBeatmapFolder: (folderPath: string) => Promise<void>

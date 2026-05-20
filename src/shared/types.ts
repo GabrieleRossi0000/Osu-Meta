@@ -44,6 +44,8 @@ export interface BeatmapDifficultySummary {
 export interface LoadedMetadata {
   metadata: BeatmapMetadata
   mismatched: boolean
+  /** Metadata fields that differ between .osu files in this set. */
+  mismatchedFields: (keyof BeatmapMetadata)[]
   comboColours: BeatmapComboColour[]
   comboColoursMismatched: boolean
   diffCount: number
@@ -111,8 +113,17 @@ export interface DetectedPath {
   exists: boolean
 }
 
+export interface SaveMetadataPayload {
+  metadata: BeatmapMetadata
+  comboColours: BeatmapComboColour[]
+  savedMetadata: BeatmapMetadata
+  savedComboColours: BeatmapComboColour[]
+}
+
 export interface SaveMetadataResult {
   updatedFiles: number
+  updatedMetadataFields: (keyof BeatmapMetadata)[]
+  updatedComboColours: boolean
 }
 
 export type CurrentBeatmapStatus =
@@ -140,4 +151,30 @@ export interface SuggestRankedSourceRequest {
   beatmapSetId: number | null
   /** When true, bypass cached negative results and re-query osu!. */
   refresh?: boolean
+}
+
+export interface OsuBeatmapsetSearchHit {
+  beatmapSetId: number
+  artist: string
+  artistUnicode: string
+  title: string
+  titleUnicode: string
+  creator: string
+  status: string
+  coverUrl: string | null
+  /** When the set entered ranked, loved, or qualified — used for import search ordering. */
+  leaderboardDateAt: number
+  /** Game modes present in this beatmapset (osu, taiko, catch, mania). */
+  gameModes: string[]
+}
+
+export type ImportMetadataSource =
+  | { kind: 'local'; folderPath: string }
+  | { kind: 'web'; beatmapSetId: number }
+
+export type ImportMetadataMode = 'full' | 'tags' | 'song'
+
+export interface ImportSourceData {
+  metadata: BeatmapMetadata
+  comboColours: BeatmapComboColour[]
 }

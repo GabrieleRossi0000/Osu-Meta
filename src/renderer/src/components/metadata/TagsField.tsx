@@ -201,6 +201,7 @@ export default function TagsField({
     items.map((tag) => (
       <Badge
         key={`${keyPrefix}-${tag}`}
+        className="mv-tag-chip"
         variant="light"
         color={color}
         style={{ cursor: 'pointer' }}
@@ -318,8 +319,10 @@ export default function TagsField({
         <Alert icon={<IconAlertTriangle />} color="orange" variant="light" mb="xs">
           <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
             <Text size="sm" style={{ flex: 1 }}>
-              Tags should not repeat the artist, title, or source (
-              {artistTitleTagOccurrences.map(({ tag }) => tag).join(', ')}).
+              Tags should not repeat artist, title, or source (
+              {artistTitleTagOccurrences.map(({ tag }) => tag).join(', ')}). Album names belong in
+              tags, not source — a phrase like &quot;no antidote&quot; is fine when the song title is
+              &quot;no filter&quot;.
             </Text>
             <Group gap={6} wrap="nowrap">
               <Button variant="subtle" color="orange" size="compact-sm" onClick={removeArtistTitleTagMatches}>

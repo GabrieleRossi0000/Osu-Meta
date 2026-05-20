@@ -181,8 +181,8 @@ export function scanBeatmapSets(songsPath: string, force = false): BeatmapSetSum
     candidates.push(scanned)
   }
 
-  const results = deduplicateBeatmapSets(candidates).sort((a, b) =>
-    a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
+  const results = deduplicateBeatmapSets(candidates).sort(
+    (a, b) => b.lastModifiedAt - a.lastModifiedAt
   )
 
   const summaryByPath = new Map(results.map((set) => [set.folderPath, set]))

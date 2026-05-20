@@ -1,6 +1,7 @@
 import { Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core'
 import { IconFolder } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
+import { modalClassNames, modalOverlayProps, modalTransitionProps } from '../../theme/modal'
 
 interface SettingsModalProps {
   opened: boolean
@@ -43,8 +44,17 @@ export default function SettingsModal({
   }
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Settings" size="md" centered>
-      <Stack gap="md">
+    <Modal
+      opened={opened}
+      onClose={onClose}
+      title="Settings"
+      size="md"
+      centered
+      classNames={modalClassNames}
+      overlayProps={modalOverlayProps}
+      transitionProps={modalTransitionProps}
+    >
+      <Stack gap="md" className="mv-modal-stagger">
         <TextInput label="Songs folder" value={folder} readOnly />
         <Button
           variant="light"
@@ -60,7 +70,7 @@ export default function SettingsModal({
             {error}
           </Text>
         )}
-        <Group justify="flex-end">
+        <Group justify="flex-end" className="mv-modal-actions">
           <Button variant="default" onClick={onClose}>
             Close
           </Button>

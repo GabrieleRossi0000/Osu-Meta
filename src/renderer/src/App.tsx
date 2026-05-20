@@ -18,33 +18,51 @@ import {
 } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks'
+import { Notifications } from '@mantine/notifications'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { filterBeatmaps } from '@shared/filter-beatmaps'
 import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
 import { matchBeatmapByDisplayTitle } from '@shared/match-display-name'
-import { editorStateEquals } from '@shared/metadata-utils'
+import { comboColoursEqual } from '@shared/combo-colours'
+import {
+  editorStateEquals,
+  getDirtyMetadataFields,
+  normalizeBeatmapMetadata
+} from '@shared/metadata-utils'
 import { applyRomanizedFieldLocks, getRomanizedFieldLocks } from '@shared/romanization'
+import { formatSaveSuccessMessage } from '@shared/save-metadata-message'
 import type {
   BeatmapComboColour,
   BeatmapDifficultySummary,
   BeatmapMetadata,
   BeatmapSetSummary,
   DetectedPath,
+  ImportMetadataMode,
+  ImportMetadataSource,
   TagSectionsExpanded
 } from '@shared/types'
 import BeatmapsSidebar from './components/beatmaps/BeatmapsSidebar'
+import SidebarResizeHandle from './components/beatmaps/SidebarResizeHandle'
+import KeyboardShortcutsHelp from './components/common/KeyboardShortcutsHelp'
 import NoBeatmapSelected from './components/common/NoBeatmapSelected'
 import MetadataEditor from './components/metadata/MetadataEditor'
-import ImportMetadataModal, {
-  applyMetadataImport,
-  type ImportMetadataMode
-} from './components/metadata/ImportMetadataModal'
+import ImportMetadataModal, { applyMetadataImport } from './components/metadata/ImportMetadataModal'
 import SettingsButton from './components/settings/SettingsButton'
 import UpToDatePill from './components/common/UpToDatePill'
 import WindowBar from './components/window/WindowBar'
 import logoUrl from './assets/logo.png'
 import { theme } from './theme/Theme'
+import { modalClassNames, modalOverlayProps, modalTransitionProps } from './theme/modal'
+import { notifyError, notifySuccess } from './utils/notify'
+
+const appModalProps = {
+  centered: true,
+  classNames: modalClassNames,
+  overlayProps: modalOverlayProps,
+  transitionProps: modalTransitionProps
+} as const
 import '@mantine/core/styles.css'
+import '@mantine/notifications/styles.css'
 import './theme/global.scss'
 
 const cssVarResolver: CSSVariablesResolver = () => ({
@@ -169,6 +187,7 @@ function MainScreen({
   const [isFeaturedArtist, setIsFeaturedArtist] = useState(false)
   const [isOnOsuWebsite, setIsOnOsuWebsite] = useState(false)
   const [mismatched, setMismatched] = useState(false)
+  const [mismatchedFields, setMismatchedFields] = useState<(keyof BeatmapMetadata)[]>([])
   const [comboColoursMismatched, setComboColoursMismatched] = useState(false)
   const [tagSectionsExpanded, setTagSectionsExpanded] = useState<TagSectionsExpanded>({
     featured: true,
@@ -181,10 +200,13 @@ function MainScreen({
   const [sidebarWidth, setSidebarWidth] = useState(256)
   const [showImportModal, setShowImportModal] = useState(false)
   const [importingMetadata, setImportingMetadata] = useState(false)
+  const [importedWebBeatmapSetId, setImportedWebBeatmapSetId] = useState<number | null>(null)
   const [highlightedFolderPath, setHighlightedFolderPath] = useState<string | null>(null)
   const [showUnsavedSwitch, setShowUnsavedSwitch] = useState(false)
   const [showUnsavedClose, setShowUnsavedClose] = useState(false)
   const [pendingSelect, setPendingSelect] = useState<BeatmapSetSummary | null>(null)
+  const [switchAfterSave, setSwitchAfterSave] = useState(false)
+  const [closeAfterSave, setCloseAfterSave] = useState(false)
   const [loadingList, setLoadingList] = useState(true)
   const [loadingMeta, setLoadingMeta] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -209,6 +231,24 @@ function MainScreen({
       !editorStateEquals(metadata, savedMetadata, comboColours, savedComboColours),
     [metadata, savedMetadata, comboColours, savedComboColours]
   )
+
+  const dirtyFolderPath = isDirty ? (selected?.folderPath ?? null) : null
+
+  const dirtyMetadataFields = useMemo(
+    () => (savedMetadata ? getDirtyMetadataFields(metadata, savedMetadata) : []),
+    [metadata, savedMetadata]
+  )
+
+  const comboColoursDirty = useMemo(
+    () =>
+      savedComboColours !== null && !comboColoursEqual(comboColours, savedComboColours),
+    [comboColours, savedComboColours]
+  )
+
+  const needsMismatchConfirm = useMemo(() => {
+    if (comboColoursDirty && comboColoursMismatched) return true
+    return dirtyMetadataFields.some((field) => mismatchedFields.includes(field))
+  }, [comboColoursDirty, comboColoursMismatched, dirtyMetadataFields, mismatchedFields])
 
   const loadBeatmaps = useCallback(async (force = false): Promise<BeatmapSetSummary[]> => {
     setLoadingList(true)
@@ -248,6 +288,7 @@ function MainScreen({
 
   const selectBeatmap = useCallback(async (set: BeatmapSetSummary): Promise<void> => {
     setSelected(set)
+    setImportedWebBeatmapSetId(null)
     setIsOnOsuWebsite(false)
     setStatus(null)
     setLoadingMeta(true)
@@ -263,6 +304,7 @@ function MainScreen({
       setIsFeaturedArtist(loaded.isFeaturedArtist)
       setIsOnOsuWebsite(loaded.isOnOsuWebsite)
       setMismatched(loaded.mismatched)
+      setMismatchedFields(loaded.mismatchedFields)
       setComboColoursMismatched(loaded.comboColoursMismatched)
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to load metadata.')
@@ -284,42 +326,136 @@ function MainScreen({
   )
 
   const performSave = useCallback(async (): Promise<void> => {
-    if (!selected) return
+    if (!selected || savedMetadata === null || savedComboColours === null) return
+    if (saving) return
+
+    const folderPath = selected.folderPath
+    const shouldSwitch = switchAfterSave
+    const shouldClose = closeAfterSave
+    const nextSet = shouldSwitch ? pendingSelect : null
+
+    const normalizedCurrent = normalizeBeatmapMetadata(metadata)
+    const normalizedSaved = normalizeBeatmapMetadata(savedMetadata)
+    const toSave = applyRomanizedFieldLocks(
+      normalizedCurrent,
+      getRomanizedFieldLocks(normalizedCurrent)
+    )
+    const savePayload = {
+      metadata: toSave,
+      comboColours,
+      savedMetadata: normalizedSaved,
+      savedComboColours
+    }
+
     setSaving(true)
     setStatus(null)
     try {
-      const toSave = applyRomanizedFieldLocks(metadata, getRomanizedFieldLocks(metadata))
-      const result = await window.api.saveMetadata(selected.folderPath, toSave, comboColours)
-      setMismatched(false)
-      setComboColoursMismatched(false)
-      setSavedMetadata(toSave)
-      setSavedComboColours(comboColours)
-      setStatus(`Updated ${result.updatedFiles} .osu file(s).`)
+      const result = await window.api.saveMetadata(folderPath, savePayload)
+      const message = formatSaveSuccessMessage(result)
+      setStatus(message)
+      if (result.updatedFiles > 0) {
+        notifySuccess(message)
+      }
+
+      const loaded = await window.api.loadMetadata(folderPath)
+      setMetadata(loaded.metadata)
+      setSavedMetadata(loaded.metadata)
+      setComboColours(loaded.comboColours)
+      setSavedComboColours(loaded.comboColours)
+      setMismatched(loaded.mismatched)
+      setMismatchedFields(loaded.mismatchedFields)
+      setComboColoursMismatched(loaded.comboColoursMismatched)
+
       const sets = await loadBeatmaps()
-      const refreshed = sets.find((b) => b.folderPath === selected.folderPath)
+      const refreshed = sets.find((b) => b.folderPath === folderPath)
       if (refreshed) setSelected(refreshed)
-    } catch (err) {
-      setStatus(`Failed: ${err instanceof Error ? err.message : 'Unknown error'}`)
-    } finally {
-      setSaving(false)
+
       setShowMismatchConfirm(false)
       setShowSaveSafety(false)
+
+      if (shouldSwitch && nextSet) {
+        setPendingSelect(null)
+        setSwitchAfterSave(false)
+        await selectBeatmap(nextSet)
+      } else if (shouldClose) {
+        setCloseAfterSave(false)
+        void window.api.confirmAppClose()
+      }
+    } catch (err) {
+      const failMessage = err instanceof Error ? err.message : 'Unknown error'
+      setStatus(`Failed: ${failMessage}`)
+      notifyError(`Save failed: ${failMessage}`)
+      if (shouldSwitch && nextSet) {
+        setSwitchAfterSave(true)
+        setShowUnsavedSwitch(true)
+      } else if (shouldClose) {
+        setCloseAfterSave(true)
+        setShowUnsavedClose(true)
+      }
+    } finally {
+      setSaving(false)
     }
-  }, [selected, metadata, comboColours, loadBeatmaps])
+  }, [
+    selected,
+    metadata,
+    comboColours,
+    savedMetadata,
+    savedComboColours,
+    saving,
+    loadBeatmaps,
+    switchAfterSave,
+    closeAfterSave,
+    pendingSelect,
+    selectBeatmap
+  ])
 
   const handleSave = useCallback((): void => {
     if (!selected) return
+    setSwitchAfterSave(false)
+    setCloseAfterSave(false)
     setShowSaveSafety(true)
   }, [selected])
 
-  const confirmSaveSafety = useCallback((): void => {
+  const saveAndSwitch = useCallback((): void => {
+    if (!selected || !pendingSelect) return
+    setShowUnsavedSwitch(false)
+    setSwitchAfterSave(true)
+    setCloseAfterSave(false)
+    setShowSaveSafety(true)
+  }, [selected, pendingSelect])
+
+  const cancelSaveFlow = useCallback((): void => {
+    if (switchAfterSave && pendingSelect) {
+      setShowUnsavedSwitch(true)
+    } else if (closeAfterSave) {
+      setShowUnsavedClose(true)
+    }
+    setSwitchAfterSave(false)
+    setCloseAfterSave(false)
     setShowSaveSafety(false)
-    if (mismatched || comboColoursMismatched) {
+    setShowMismatchConfirm(false)
+  }, [switchAfterSave, closeAfterSave, pendingSelect])
+
+  const confirmSaveSafety = useCallback((): void => {
+    if (saving) return
+    if (needsMismatchConfirm) {
+      setShowSaveSafety(false)
       setShowMismatchConfirm(true)
       return
     }
     void performSave()
-  }, [mismatched, comboColoursMismatched, performSave])
+  }, [needsMismatchConfirm, performSave, saving])
+
+  const saveAndClose = useCallback((): void => {
+    setShowUnsavedClose(false)
+    setCloseAfterSave(true)
+    setSwitchAfterSave(false)
+    setShowSaveSafety(true)
+  }, [])
+
+  const handleSidebarWidthCommit = useCallback((width: number): void => {
+    void window.api.setSidebarWidth(width)
+  }, [])
 
   const fetchCurrentMap = useCallback(async (): Promise<void> => {
     setFetchingCurrent(true)
@@ -327,15 +463,23 @@ function MainScreen({
     try {
       const result = await window.api.lookupCurrentBeatmap(beatmaps)
 
+      const selectFound = (found: BeatmapSetSummary): void => {
+        setHighlightedFolderPath(found.folderPath)
+        window.setTimeout(() => setHighlightedFolderPath(null), 2500)
+        if (selected?.folderPath === found.folderPath) {
+          setFetchNotice(null)
+          return
+        }
+        trySelectBeatmap(found)
+        setFetchNotice(null)
+      }
+
       const selectByFolder = (folderPath: string): boolean => {
         const found = beatmaps.find(
           (b) => b.folderPath.toLowerCase() === folderPath.toLowerCase()
         )
         if (!found) return false
-        setHighlightedFolderPath(found.folderPath)
-        window.setTimeout(() => setHighlightedFolderPath(null), 2500)
-        void selectBeatmap(found)
-        setFetchNotice(null)
+        selectFound(found)
         return true
       }
 
@@ -350,10 +494,7 @@ function MainScreen({
       if (result.displayTitle) {
         const found = matchBeatmapByDisplayTitle(beatmaps, result.displayTitle)
         if (found) {
-          setHighlightedFolderPath(found.folderPath)
-          window.setTimeout(() => setHighlightedFolderPath(null), 2500)
-          await selectBeatmap(found)
-          setFetchNotice(null)
+          selectFound(found)
           return
         }
         setFetchNotice(
@@ -368,7 +509,7 @@ function MainScreen({
     } finally {
       setFetchingCurrent(false)
     }
-  }, [beatmaps, selectBeatmap])
+  }, [beatmaps, selected, trySelectBeatmap])
 
   const moveListSelection = useCallback(
     (direction: -1 | 1): void => {
@@ -405,6 +546,10 @@ function MainScreen({
 
       if (event.ctrlKey && event.key.toLowerCase() === 'f') {
         event.preventDefault()
+        if (event.shiftKey) {
+          void fetchCurrentMap()
+          return
+        }
         searchInputRef.current?.focus()
         searchInputRef.current?.select()
         return
@@ -423,7 +568,7 @@ function MainScreen({
 
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [handleSave, moveListSelection])
+  }, [handleSave, moveListSelection, fetchCurrentMap])
 
   const openSelectedFolder = (): void => {
     if (!selected) return
@@ -447,23 +592,42 @@ function MainScreen({
   }
 
   const handleImportMetadata = useCallback(
-    async (sourceFolderPath: string, mode: ImportMetadataMode): Promise<void> => {
+    async (
+      source: ImportMetadataSource,
+      mode: ImportMetadataMode,
+      includeComboColours: boolean
+    ): Promise<void> => {
       setImportingMetadata(true)
       try {
-        const loaded = await window.api.loadMetadata(sourceFolderPath)
-        setMetadata((current) => applyMetadataImport(current, loaded.metadata, mode))
-        if (mode === 'full') {
-          setComboColours(loaded.comboColours)
+        if (source.kind === 'local') {
+          const loaded = await window.api.loadMetadata(source.folderPath)
+          setMetadata((current) => applyMetadataImport(current, loaded.metadata, mode))
+          setImportedWebBeatmapSetId(null)
+          if (includeComboColours) {
+            setComboColours(loaded.comboColours)
+          }
+        } else {
+          const imported = await window.api.loadImportSourceFromBeatmapSet(source.beatmapSetId)
+          setMetadata((current) => applyMetadataImport(current, imported.metadata, mode))
+          setImportedWebBeatmapSetId(source.beatmapSetId)
+          if (includeComboColours) {
+            setComboColours(imported.comboColours)
+          }
         }
         setShowImportModal(false)
-        const labels: Record<ImportMetadataMode, string> = {
-          full: 'Imported full metadata.',
-          tags: 'Imported tags.',
-          song: 'Imported song metadata.'
-        }
-        setStatus(labels[mode])
+        const parts: string[] = []
+        if (mode === 'full') parts.push('full metadata')
+        else if (mode === 'tags') parts.push('tags')
+        else parts.push('song metadata')
+        if (includeComboColours) parts.push('combo colours')
+        const message =
+          parts.length > 0 ? `Imported ${parts.join(' and ')}.` : 'Nothing to import.'
+        setStatus(message)
+        notifySuccess(message)
       } catch (err) {
-        setStatus(err instanceof Error ? err.message : 'Failed to import metadata.')
+        const message = err instanceof Error ? err.message : 'Failed to import metadata.'
+        setStatus(message)
+        notifyError(message)
       } finally {
         setImportingMetadata(false)
       }
@@ -478,6 +642,11 @@ function MainScreen({
       setPendingSelect(null)
     }
   }
+
+  const handleRevert = useCallback((): void => {
+    if (!selected) return
+    void selectBeatmap(selected)
+  }, [selected, selectBeatmap])
 
   return (
     <>
@@ -505,18 +674,21 @@ function MainScreen({
             <Text fw={600} size="sm" style={{ flex: 1, minWidth: 0 }}>
               Beatmap list
             </Text>
+            <KeyboardShortcutsHelp />
             <SettingsButton songsPath={songsPath} onSongsPathChange={onSongsPathChange} />
           </Group>
         </AppShell.Header>
 
         <AppShell.Navbar style={{ viewTransitionName: 'app-sidebar' }}>
-          <BeatmapsSidebar
+          <div className="mv-sidebar-shell">
+            <BeatmapsSidebar
             filteredBeatmaps={filteredBeatmaps}
             totalBeatmapCount={beatmaps.length}
             loading={loadingList}
             songsConfigured={Boolean(songsPath)}
             selectedFolderPath={selected?.folderPath ?? null}
             highlightedFolderPath={highlightedFolderPath}
+            dirtyFolderPath={dirtyFolderPath}
             search={listSearch}
             onSearchChange={setListSearch}
             searchInputRef={searchInputRef}
@@ -525,10 +697,34 @@ function MainScreen({
             onFetchCurrent={() => void fetchCurrentMap()}
             fetchingCurrent={fetchingCurrent}
             fetchNotice={fetchNotice}
+            onDismissFetchNotice={() => setFetchNotice(null)}
           />
+            <SidebarResizeHandle
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              onWidthCommit={handleSidebarWidthCommit}
+            />
+          </div>
         </AppShell.Navbar>
 
         <AppShell.Main className="mv-app-main">
+          {osuRunning ? (
+            <Alert
+              icon={<IconAlertTriangle size={16} />}
+              color="yellow"
+              variant="light"
+              className="mv-alert-slide-down"
+              px="md"
+              py="xs"
+              style={{
+                borderRadius: 0,
+                borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+              }}
+            >
+              osu! is running. Close the editor or leave song select before saving, or osu! may
+              overwrite your changes on disk.
+            </Alert>
+          ) : null}
           <ScrollArea
             offsetScrollbars
             type="always"
@@ -557,9 +753,11 @@ function MainScreen({
                   onChange={setMetadata}
                   onComboColoursChange={setComboColours}
                   onSave={handleSave}
+                  onRevert={handleRevert}
                   onOpenFolder={openSelectedFolder}
                   onOpenBeatmapPage={openSelectedBeatmapPage}
                   onOpenImportModal={() => setShowImportModal(true)}
+                  importedWebBeatmapSetId={importedWebBeatmapSetId}
                 />
                 </div>
               ) : (
@@ -576,19 +774,31 @@ function MainScreen({
           onClose={() => setShowImportModal(false)}
           beatmaps={beatmaps}
           currentFolderPath={selected.folderPath}
+          currentMetadata={metadata}
+          currentComboColours={comboColours}
           importing={importingMetadata}
-          onImport={(sourceFolderPath, mode) => void handleImportMetadata(sourceFolderPath, mode)}
+          onImport={(source, mode, includeComboColours) =>
+            void handleImportMetadata(source, mode, includeComboColours)
+          }
         />
       )}
 
       <Modal
         opened={showSaveSafety}
-        onClose={() => setShowSaveSafety(false)}
+        onClose={cancelSaveFlow}
         title="Before you save"
         size="md"
-        centered
+        {...appModalProps}
       >
-        <Stack gap="md">
+        <Stack gap="md" className="mv-modal-stagger">
+          <Text size="sm" c="dimmed">
+            Saving applies your metadata and combo colours to every difficulty in this mapset.
+            {switchAfterSave
+              ? ' After saving, the other mapset will open.'
+              : closeAfterSave
+                ? ' After saving, the app will close.'
+                : ''}
+          </Text>
           <Alert
             icon={<IconAlertTriangle />}
             color={osuRunning ? 'red' : 'yellow'}
@@ -598,11 +808,13 @@ function MainScreen({
               ? 'osu! is running. Close the editor or leave song select before saving, or osu! may overwrite your changes on disk.'
               : "Make sure the map is not open in the editor and that you're on song select before saving. If the map is still open in the editor, osu! may overwrite your changes."}
           </Alert>
-          <Group justify="flex-end" gap="sm">
-            <Button variant="default" onClick={() => setShowSaveSafety(false)}>
+          <Group justify="flex-end" gap="sm" className="mv-modal-actions">
+            <Button variant="default" onClick={cancelSaveFlow}>
               Cancel
             </Button>
-            <Button onClick={confirmSaveSafety}>Save</Button>
+            <Button onClick={confirmSaveSafety} loading={saving} disabled={saving}>
+              {switchAfterSave ? 'Save and open' : closeAfterSave ? 'Save and close' : 'Save'}
+            </Button>
           </Group>
         </Stack>
       </Modal>
@@ -612,46 +824,55 @@ function MainScreen({
         onClose={() => {
           setShowUnsavedSwitch(false)
           setPendingSelect(null)
+          setSwitchAfterSave(false)
         }}
         title="Unsaved changes"
-        centered
+        {...appModalProps}
       >
-        <Text size="sm" mb="md">
-          You have unsaved edits (metadata and/or combo colours). Discard them and open the other
-          mapset?
+        <Stack gap="md" className="mv-modal-stagger">
+        <Text size="sm">
+          You have unsaved edits (metadata and/or combo colours). Save them, discard them, or stay
+          on this mapset?
         </Text>
-        <Group justify="flex-end" gap="sm">
+        <Group justify="flex-end" gap="sm" className="mv-modal-actions">
           <Button
             variant="default"
             onClick={() => {
               setShowUnsavedSwitch(false)
               setPendingSelect(null)
+              setSwitchAfterSave(false)
             }}
           >
             Cancel
           </Button>
-          <Button color="red" onClick={discardUnsavedAndContinue}>
+          <Button color="red" variant="light" onClick={discardUnsavedAndContinue}>
             Discard changes
           </Button>
+          <Button onClick={saveAndSwitch} loading={saving} disabled={saving}>
+            Save and open
+          </Button>
         </Group>
+        </Stack>
       </Modal>
 
       <Modal
         opened={showUnsavedClose}
         onClose={() => setShowUnsavedClose(false)}
         title="Unsaved changes"
-        centered
+        {...appModalProps}
       >
-        <Text size="sm" mb="md">
-          You have unsaved edits (metadata and/or combo colours). Close anyway and lose your
-          changes?
+        <Stack gap="md" className="mv-modal-stagger">
+        <Text size="sm">
+          You have unsaved edits (metadata and/or combo colours). Save them, close without saving,
+          or stay in the app?
         </Text>
-        <Group justify="flex-end" gap="sm">
+        <Group justify="flex-end" gap="sm" className="mv-modal-actions">
           <Button variant="default" onClick={() => setShowUnsavedClose(false)}>
             Cancel
           </Button>
           <Button
             color="red"
+            variant="light"
             onClick={() => {
               setShowUnsavedClose(false)
               void window.api.confirmAppClose()
@@ -659,25 +880,46 @@ function MainScreen({
           >
             Close without saving
           </Button>
+          <Button onClick={saveAndClose} loading={saving}>
+            Save and close
+          </Button>
         </Group>
+        </Stack>
       </Modal>
 
       <Modal
         opened={showMismatchConfirm}
-        onClose={() => setShowMismatchConfirm(false)}
+        onClose={cancelSaveFlow}
         title="Unify mismatched difficulties?"
-        centered
+        {...appModalProps}
       >
-        <Text size="sm" mb="md">
-          Some difficulties differ in metadata or combo colours. Saving will apply your current
-          editor values to every .osu file in this set.
+        <Stack gap="md" className="mv-modal-stagger">
+        <Text size="sm">
+          Some difficulties differ in the fields you are saving. Your current editor values will be
+          written to every .osu file in this set for those fields only.
+          {switchAfterSave
+            ? ' After saving, the other mapset will open.'
+            : closeAfterSave
+              ? ' After saving, the app will close.'
+              : ''}
         </Text>
-        <Group justify="flex-end" gap="sm">
-          <Button variant="default" onClick={() => setShowMismatchConfirm(false)}>
+        <Group justify="flex-end" gap="sm" className="mv-modal-actions">
+          <Button variant="default" onClick={cancelSaveFlow}>
             Cancel
           </Button>
-          <Button onClick={() => void performSave()}>Save anyway</Button>
+          <Button
+            onClick={() => void performSave()}
+            loading={saving}
+            disabled={saving}
+          >
+            {switchAfterSave
+              ? 'Save and open'
+              : closeAfterSave
+                ? 'Save and close'
+                : 'Save anyway'}
+          </Button>
         </Group>
+        </Stack>
       </Modal>
     </>
   )
@@ -714,8 +956,9 @@ export default function App(): JSX.Element {
 
   return (
     <MantineProvider defaultColorScheme="dark" theme={theme} cssVariablesResolver={cssVarResolver}>
+      <Notifications classNames={{ root: 'mv-notifications-root' }} position="top-center" />
       <UpToDatePill />
-      <WindowBar />
+      <WindowBar osuRunning={osuRunning} />
       {loading ? (
         <Center h="100vh">
           <Loader color="primary" />

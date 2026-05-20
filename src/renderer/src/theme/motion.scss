@@ -1,0 +1,607 @@
+/* OsuMeta motion tokens & utilities — import from global.scss */
+
+:root {
+  --mv-ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --mv-ease-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --mv-dur-micro: 140ms;
+  --mv-dur-ui: 220ms;
+  --mv-dur-panel: 280ms;
+  --mv-dur-hero: 360ms;
+  --mv-stagger-step: 40ms;
+}
+
+/* —— Ambient shell —— */
+.mv-app-main {
+  background-size: 200% 200%;
+  animation: mv-shell-gradient 90s ease-in-out infinite alternate;
+}
+
+@keyframes mv-shell-gradient {
+  0% {
+    background-position: 0% 40%;
+  }
+
+  100% {
+    background-position: 100% 60%;
+  }
+}
+
+/* —— Route / editor enter —— */
+.mv-route-outlet-wrap {
+  animation: mv-route-enter var(--mv-dur-ui) var(--mv-ease-out);
+}
+
+@keyframes mv-route-enter {
+  from {
+    opacity: 0.55;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mv-editor-hero {
+  overflow: hidden;
+}
+
+.mv-editor-hero__bg {
+  animation: mv-hero-ken-burns 8s var(--mv-ease-out) forwards;
+  transform-origin: center top;
+}
+
+@keyframes mv-hero-ken-burns {
+  from {
+    transform: scale(1.04);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Stagger direct children */
+.mv-stagger-children > * {
+  animation: mv-stagger-item var(--mv-dur-panel) var(--mv-ease-spring) both;
+}
+
+@for $i from 1 through 16 {
+  .mv-stagger-children > *:nth-child(#{$i}) {
+    animation-delay: calc(#{$i - 1} * var(--mv-stagger-step));
+  }
+}
+
+@keyframes mv-stagger-item {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Wizard step direction */
+.mv-step-enter--forward {
+  animation: mv-step-forward var(--mv-dur-panel) var(--mv-ease-spring);
+}
+
+.mv-step-enter--back {
+  animation: mv-step-back var(--mv-dur-panel) var(--mv-ease-spring);
+}
+
+@keyframes mv-step-forward {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes mv-step-back {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Import options stagger */
+.mv-import-options-stagger > * {
+  animation: mv-stagger-item var(--mv-dur-panel) var(--mv-ease-spring) both;
+}
+
+@for $i from 1 through 6 {
+  .mv-import-options-stagger > *:nth-child(#{$i}) {
+    animation-delay: calc(60ms + (#{$i - 1} * 50ms));
+  }
+}
+
+.mv-import-hero__bg {
+  animation: mv-import-hero-zoom 6s var(--mv-ease-out) forwards;
+  transform-origin: center center;
+}
+
+@keyframes mv-import-hero-zoom {
+  from {
+    transform: scale(1.06);
+  }
+
+  to {
+    transform: scale(1);
+  }
+}
+
+/* —— Sidebar & cards —— */
+.mv-sidebar-list {
+  transition: opacity var(--mv-dur-ui) var(--mv-ease-out);
+}
+
+.mv-sidebar-list--fading {
+  opacity: 0.72;
+}
+
+.mv-beatmap-card--selected {
+  animation: mv-card-select 320ms var(--mv-ease-spring);
+}
+
+@keyframes mv-card-select {
+  0% {
+    transform: translateY(-2px) scale(0.98);
+  }
+
+  55% {
+    transform: translateY(-3px) scale(1.01);
+  }
+
+  100% {
+    transform: translateY(-2px) scale(1);
+  }
+}
+
+.mv-beatmap-card-dirty-dot {
+  animation: mv-dirty-dot-pop 400ms var(--mv-ease-spring);
+}
+
+@keyframes mv-dirty-dot-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0);
+  }
+
+  60% {
+    opacity: 1;
+    transform: scale(1.25);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* —— Save & status —— */
+.mv-save-primary--dirty:not(:disabled) {
+  animation: mv-save-glow 2.4s ease-in-out infinite;
+}
+
+@keyframes mv-save-glow {
+  0%,
+  100% {
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--mantine-color-primary-6) 18%, transparent);
+  }
+
+  50% {
+    box-shadow: 0 8px 28px color-mix(in srgb, var(--mantine-color-primary-5) 42%, transparent);
+  }
+}
+
+.mv-save-primary:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.mv-status-line {
+  animation: mv-status-fade var(--mv-dur-panel) var(--mv-ease-spring);
+}
+
+@keyframes mv-status-fade {
+  from {
+    opacity: 0;
+    transform: translateX(-6px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* —— Forms & alerts —— */
+.mv-field-wrap .mantine-TextInput-input,
+.mv-field-wrap .mantine-Textarea-input {
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background-color 150ms ease;
+}
+
+.mv-field-wrap .mantine-TextInput-input:focus,
+.mv-field-wrap .mantine-Textarea-input:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mantine-color-primary-5) 18%, transparent);
+}
+
+.mv-alert-enter {
+  animation: mv-alert-slide var(--mv-dur-panel) var(--mv-ease-spring);
+}
+
+.mv-alert-slide-down {
+  animation: mv-alert-slide-down var(--mv-dur-hero) var(--mv-ease-spring);
+}
+
+@keyframes mv-alert-slide {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes mv-alert-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mv-badge-will-change {
+  animation: mv-badge-flip 280ms var(--mv-ease-spring);
+  transform-origin: center center;
+}
+
+@keyframes mv-badge-flip {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.4);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+.mv-copy-flash {
+  animation: mv-copy-flash 600ms var(--mv-ease-spring);
+}
+
+@keyframes mv-copy-flash {
+  0% {
+    background: color-mix(in srgb, var(--mantine-color-green-6) 35%, transparent);
+  }
+
+  100% {
+    background: rgba(255, 255, 255, 0.08);
+  }
+}
+
+/* —— Combo colours —— */
+.mv-combo-row {
+  animation: mv-combo-row-in var(--mv-dur-panel) var(--mv-ease-spring);
+}
+
+@keyframes mv-combo-row-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.mv-combo-row--exit {
+  animation: mv-combo-row-out 200ms var(--mv-ease-out) forwards;
+}
+
+@keyframes mv-combo-row-out {
+  to {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+}
+
+.mv-swatch-stagger > * {
+  animation: mv-swatch-pop 260ms var(--mv-ease-spring) both;
+}
+
+@for $i from 1 through 12 {
+  .mv-swatch-stagger > *:nth-child(#{$i}) {
+    animation-delay: calc(#{$i - 1} * 35ms);
+  }
+}
+
+@keyframes mv-swatch-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.mv-combo-reveal {
+  animation: mv-combo-reveal var(--mv-dur-panel) var(--mv-ease-spring);
+}
+
+@keyframes mv-combo-reveal {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+
+  to {
+    opacity: 1;
+    max-height: 400px;
+  }
+}
+
+/* —— Tags & chips —— */
+.mv-tag-chip {
+  transition:
+    transform var(--mv-dur-micro) var(--mv-ease-spring),
+    background-color 150ms ease;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px) scale(1.03);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
+  }
+}
+
+/* —— Chevron —— */
+.mv-chevron-btn .mv-chevron-icon {
+  transition: transform var(--mv-dur-ui) var(--mv-ease-spring);
+}
+
+.mv-chevron-btn--open .mv-chevron-icon {
+  transform: rotate(90deg);
+}
+
+/* —— Difficulties —— */
+.mv-diff-row {
+  animation: mv-stagger-item var(--mv-dur-ui) var(--mv-ease-spring) both;
+}
+
+@for $i from 1 through 24 {
+  .mv-diff-list > .mv-diff-row:nth-child(#{$i}) {
+    animation-delay: calc(#{$i - 1} * 30ms);
+  }
+}
+
+/* —— Notifications —— */
+.mv-notification-enter {
+  animation: mv-notification-in 360ms var(--mv-ease-spring);
+}
+
+.mv-notification--error {
+  animation:
+    mv-notification-in 360ms var(--mv-ease-spring),
+    mv-notification-shake 480ms 360ms ease;
+}
+
+@keyframes mv-notification-in {
+  from {
+    opacity: 0;
+    transform: translateY(-14px) scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes mv-notification-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-4px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+/* —— Modals —— */
+.mv-modal-stagger > * {
+  animation: mv-stagger-item var(--mv-dur-panel) var(--mv-ease-spring) both;
+}
+
+@for $i from 1 through 8 {
+  .mv-modal-stagger > *:nth-child(#{$i}) {
+    animation-delay: calc(80ms + (#{$i - 1} * 45ms));
+  }
+}
+
+.mv-modal-actions > * {
+  animation: mv-stagger-item var(--mv-dur-ui) var(--mv-ease-spring) both;
+}
+
+@for $i from 1 through 5 {
+  .mv-modal-actions > *:nth-child(#{$i}) {
+    animation-delay: calc(120ms + (#{$i - 1} * 40ms));
+  }
+}
+
+/* —— Window bar —— */
+.mv-logo-interactive {
+  transition:
+    transform 280ms var(--mv-ease-spring),
+    filter 280ms ease;
+
+  &:hover {
+    transform: scale(1.04) rotate(-1deg);
+    filter: drop-shadow(0 2px 14px rgba(0, 0, 0, 0.45))
+      drop-shadow(0 0 12px color-mix(in srgb, var(--mantine-color-primary-5) 35%, transparent));
+  }
+}
+
+.mv-osu-dot {
+  transition:
+    background-color 300ms ease,
+    box-shadow 300ms ease,
+    transform 300ms var(--mv-ease-spring);
+}
+
+.mv-osu-dot--live {
+  animation: mv-osu-dot-pulse 3s ease-in-out infinite;
+}
+
+@keyframes mv-osu-dot-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 4px color-mix(in srgb, var(--mantine-color-green-5) 40%, transparent);
+  }
+
+  50% {
+    transform: scale(1.15);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--mantine-color-green-4) 65%, transparent);
+  }
+}
+
+.mv-window-close:hover {
+  background: color-mix(in srgb, var(--mantine-color-red-8) 55%, transparent) !important;
+  transition: background 150ms ease;
+}
+
+/* —— Keyboard help —— */
+.mv-shortcuts-popover {
+  animation: mv-popover-in 240ms var(--mv-ease-spring);
+}
+
+@keyframes mv-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.mv-kbd {
+  display: inline-block;
+  transition: transform 150ms var(--mv-ease-spring);
+
+  &:hover {
+    transform: scale(1.05);
+  }
+}
+
+/* —— Skeleton —— */
+.mv-skeleton-shimmer .mantine-Skeleton-root::before {
+  animation: mv-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes mv-shimmer {
+  0% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.85;
+  }
+
+  100% {
+    opacity: 0.45;
+  }
+}
+
+/* —— Resize handle —— */
+.mv-sidebar-resize-handle--active::after {
+  background: color-mix(in srgb, var(--mantine-color-primary-4) 75%, transparent) !important;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--mantine-color-primary-5) 40%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mv-app-main {
+    animation: none;
+  }
+
+  .mv-route-outlet-wrap,
+  .mv-stagger-children > *,
+  .mv-step-enter--forward,
+  .mv-step-enter--back,
+  .mv-import-options-stagger > *,
+  .mv-editor-hero__bg,
+  .mv-import-hero__bg,
+  .mv-beatmap-card--selected,
+  .mv-beatmap-card-dirty-dot,
+  .mv-save-primary--dirty,
+  .mv-status-line,
+  .mv-alert-enter,
+  .mv-alert-slide-down,
+  .mv-badge-will-change,
+  .mv-copy-flash,
+  .mv-combo-row,
+  .mv-swatch-stagger > *,
+  .mv-combo-reveal,
+  .mv-diff-row,
+  .mv-notification-enter,
+  .mv-notification--error,
+  .mv-modal-stagger > *,
+  .mv-modal-actions > *,
+  .mv-osu-dot--live,
+  .mv-shortcuts-popover {
+    animation: none !important;
+  }
+
+  .mv-save-primary:active:not(:disabled) {
+    transform: none;
+  }
+
+  .mv-tag-chip:hover:not(:disabled) {
+    transform: none;
+  }
+
+  .mv-chevron-btn--open .mv-chevron-icon {
+    transform: none;
+  }
+}

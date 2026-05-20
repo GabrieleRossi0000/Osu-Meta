@@ -25,8 +25,13 @@ export default function NoBeatmapSelected({
             <Text c="dimmed" size="sm" ta="center" lh={1.55}>
               {loading
                 ? 'Reading metadata from disk.'
-                : 'Choose a beatmap from the sidebar to edit artist, title, and tags across every difficulty.'}
+                : 'Choose a beatmap from the sidebar, or press Ctrl+Shift+F to fetch the map selected in osu!.'}
             </Text>
+            {!loading ? (
+              <Text c="dimmed" size="xs" ta="center" lh={1.5}>
+                Ctrl+F focuses search · ↑/↓ moves between mapsets
+              </Text>
+            ) : null}
           </Stack>
         </Stack>
       </Paper>

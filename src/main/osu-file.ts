@@ -179,6 +179,17 @@ export function updateMetadataInFile(
   filePath: string,
   metadata: BeatmapMetadata
 ): void {
+  updateMetadataFieldsInFile(filePath, metadata, EDITABLE_KEYS)
+}
+
+export function updateMetadataFieldsInFile(
+  filePath: string,
+  metadata: BeatmapMetadata,
+  fields: (keyof BeatmapMetadata)[]
+): void {
+  if (fields.length === 0) return
+
+  const fieldSet = new Set(fields)
   const buffer = readOsuFileBuffer(filePath)
   const { text, encoding } = decodeOsuFile(buffer)
   const eol = detectLineEnding(text)
@@ -207,15 +218,15 @@ export function updateMetadataInFile(
 
     const osuKey = line.slice(0, colonIndex).trim()
     const field = REVERSE_KEY_MAP[osuKey]
-    if (field) {
+    if (field && fieldSet.has(field)) {
       newLines[i] = `${osuKey}:${metadata[field]}`
       updatedKeys.add(osuKey)
     }
   }
 
-  const missingLines = Object.values(KEY_MAP)
-    .filter((osuKey) => !updatedKeys.has(osuKey))
-    .map((osuKey) => {
+  const missingLines = Object.entries(KEY_MAP)
+    .filter(([field, osuKey]) => fieldSet.has(field as keyof BeatmapMetadata) && !updatedKeys.has(osuKey))
+    .map(([, osuKey]) => {
       const field = REVERSE_KEY_MAP[osuKey]!
       return `${osuKey}:${metadata[field]}`
     })

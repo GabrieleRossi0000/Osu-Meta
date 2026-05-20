@@ -11,6 +11,10 @@ export interface OsuWebBeatmapset {
   creator: string
   play_count: number
   ranked_date?: string
+  tags?: string
+  covers?: {
+    cover?: string
+  }
 }
 
 function parseJsonScript(html: string, scriptId: string): unknown | null {
@@ -24,6 +28,27 @@ function parseJsonScript(html: string, scriptId: string): unknown | null {
 
   try {
     return JSON.parse(html.slice(jsonStart, jsonEnd).trim())
+  } catch {
+    return null
+  }
+}
+
+export async function fetchFirstBeatmapIdFromWebPage(beatmapSetId: number): Promise<number | null> {
+  if (beatmapSetId <= 0) return null
+
+  try {
+    const response = await fetch(`https://osu.ppy.sh/beatmapsets/${beatmapSetId}`, {
+      headers: { 'User-Agent': USER_AGENT }
+    })
+    if (!response.ok) return null
+
+    const html = await response.text()
+    const parsed = parseJsonScript(html, 'json-beatmapset')
+    if (!parsed || typeof parsed !== 'object') return null
+
+    const beatmaps = (parsed as { beatmaps?: { id?: number }[] }).beatmaps
+    const id = beatmaps?.find((bm) => typeof bm.id === 'number')?.id
+    return typeof id === 'number' && id > 0 ? id : null
   } catch {
     return null
   }
@@ -59,7 +84,9 @@ export async function fetchBeatmapsetFromWebPage(
       status: set.status ?? '',
       creator: set.creator ?? '',
       play_count: set.play_count ?? 0,
-      ranked_date: typeof set.ranked_date === 'string' ? set.ranked_date : undefined
+      ranked_date: typeof set.ranked_date === 'string' ? set.ranked_date : undefined,
+      tags: typeof set.tags === 'string' ? set.tags : '',
+      covers: set.covers
     }
   } catch {
     return null
@@ -78,5 +105,16 @@ export function toSourceMatchCandidate(set: OsuWebBeatmapset) {
     creator: set.creator,
     playCount: set.play_count,
     rankedDate: set.ranked_date
+  }
+}
+
+export function webBeatmapsetToMetadata(set: OsuWebBeatmapset) {
+  return {
+    artist: set.artist,
+    artistUnicode: set.artist_unicode,
+    title: set.title,
+    titleUnicode: set.title_unicode,
+    source: set.source ?? '',
+    tags: set.tags ?? ''
   }
 }

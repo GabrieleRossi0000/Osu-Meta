@@ -259,6 +259,56 @@ function findContiguousMetadataCopyIndices(
   return indices
 }
 
+function tagSliceMatchesMetadata(
+  slice: string[],
+  metadataWords: string[],
+  metaStart: number
+): boolean {
+  if (slice.length < MIN_METADATA_COPY_SEQUENCE_LEN) return false
+  if (metaStart + slice.length > metadataWords.length) return false
+
+  for (let offset = 0; offset < slice.length; offset++) {
+    if (slice[offset] !== metadataWords[metaStart + offset]) return false
+  }
+
+  return true
+}
+
+function tagSliceMatchesAnyMetadata(slice: string[], metadataWordLists: string[][]): boolean {
+  if (slice.length < MIN_METADATA_COPY_SEQUENCE_LEN) return false
+
+  for (const metadataWords of metadataWordLists) {
+    for (let metaStart = 0; metaStart < metadataWords.length; metaStart++) {
+      if (tagSliceMatchesMetadata(slice, metadataWords, metaStart)) return true
+    }
+  }
+
+  return false
+}
+
+/**
+ * Album / search tags often share a word with the song title (e.g. title "no filter", tags "no antidote").
+ * Skip standalone-word flags when this tag sits in a 2+ tag run that does not copy artist/title/source.
+ */
+function isInIndependentMultiTagPhrase(
+  normalizedTags: string[],
+  index: number,
+  metadataWordLists: string[][]
+): boolean {
+  const maxPhraseLen = 6
+
+  for (let start = 0; start <= index; start++) {
+    const maxEnd = Math.min(normalizedTags.length, start + maxPhraseLen)
+    for (let end = start + MIN_METADATA_COPY_SEQUENCE_LEN; end <= maxEnd; end++) {
+      if (index < start || index >= end) continue
+      const slice = normalizedTags.slice(start, end)
+      if (!tagSliceMatchesAnyMetadata(slice, metadataWordLists)) return true
+    }
+  }
+
+  return false
+}
+
 function getMetadataTagViolationIndices(
   tags: string,
   artistUnicode: string,
@@ -279,10 +329,8 @@ function getMetadataTagViolationIndices(
     title,
     source
   )
-  const copyIndices = findContiguousMetadataCopyIndices(
-    normalizedTags,
-    metadataWordLists(artistUnicode, artist, titleUnicode, title, source)
-  )
+  const wordLists = metadataWordLists(artistUnicode, artist, titleUnicode, title, source)
+  const copyIndices = findContiguousMetadataCopyIndices(normalizedTags, wordLists)
 
   const violating = new Set<number>()
 
@@ -293,6 +341,12 @@ function getMetadataTagViolationIndices(
     if (!normalized) continue
 
     if (fullStrings.has(normalized) || standaloneWords.has(normalized)) {
+      if (
+        standaloneWords.has(normalized) &&
+        isInIndependentMultiTagPhrase(normalizedTags, index, wordLists)
+      ) {
+        continue
+      }
       violating.add(index)
       continue
     }
