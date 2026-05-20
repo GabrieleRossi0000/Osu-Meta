@@ -36,7 +36,10 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
-          files: dist/OsuMeta-*.exe
+          files: |
+            dist/OsuMeta-*.exe
+            dist/latest.yml
+            dist/*.blockmap
           generate_release_notes: false
           body: |
             Download the installer or portable build below.

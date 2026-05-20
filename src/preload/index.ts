@@ -36,6 +36,7 @@ const api = {
   saveMetadata: (folderPath: string, payload: SaveMetadataPayload): Promise<SaveMetadataResult> =>
     ipcRenderer.invoke('save-metadata', folderPath, payload),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('get-app-version'),
+  checkForUpdates: (): Promise<void> => ipcRenderer.invoke('check-for-updates'),
   lookupCurrentBeatmap: (beatmaps?: BeatmapSetSummary[]): Promise<CurrentBeatmapLookupResult> =>
     ipcRenderer.invoke('lookup-current-beatmap', beatmaps),
   openBeatmapFolder: (folderPath: string): Promise<void> =>

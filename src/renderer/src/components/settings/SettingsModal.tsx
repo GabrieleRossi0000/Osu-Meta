@@ -1,5 +1,5 @@
 import { Button, Group, Modal, Stack, Text, TextInput } from '@mantine/core'
-import { IconFolder } from '@tabler/icons-react'
+import { IconDownload, IconFolder } from '@tabler/icons-react'
 import { useEffect, useState } from 'react'
 import { modalClassNames, modalOverlayProps, modalTransitionProps } from '../../theme/modal'
 
@@ -18,7 +18,9 @@ export default function SettingsModal({
 }: SettingsModalProps): JSX.Element {
   const [folder, setFolder] = useState(songsPath)
   const [saving, setSaving] = useState(false)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [updateHint, setUpdateHint] = useState<string | null>(null)
 
   useEffect(() => {
     if (opened) {
@@ -65,11 +67,45 @@ export default function SettingsModal({
         >
           Browse…
         </Button>
-        {error && (
+        {error ? (
           <Text size="sm" c="red">
             {error}
           </Text>
-        )}
+        ) : null}
+
+        <Stack gap="xs">
+          <Text size="sm" fw={600}>
+            Updates
+          </Text>
+          <Text size="xs" c="dimmed" lh={1.5}>
+            When a newer version exists, a system dialog with <Text span fw={600}>Update now</Text>{' '}
+            appears shortly after launch. Use the setup installer (not portable) for in-app updates.
+          </Text>
+          <Button
+            variant="light"
+            leftSection={<IconDownload size={16} />}
+            onClick={() => {
+              setCheckingUpdate(true)
+              setUpdateHint(null)
+              void window.api
+                .checkForUpdates()
+                .catch((err) => {
+                  setUpdateHint(err instanceof Error ? err.message : 'Update check failed.')
+                })
+                .finally(() => setCheckingUpdate(false))
+            }}
+            loading={checkingUpdate}
+            w="fit-content"
+          >
+            Check for updates
+          </Button>
+          {updateHint ? (
+            <Text size="sm" c="dimmed">
+              {updateHint}
+            </Text>
+          ) : null}
+        </Stack>
+
         <Group justify="flex-end" className="mv-modal-actions">
           <Button variant="default" onClick={onClose}>
             Close

@@ -31,6 +31,7 @@ interface WindowApi {
   searchBeatmapsetsOnOsu: (query: string) => Promise<OsuBeatmapsetSearchHit[]>
   saveMetadata: (folderPath: string, payload: SaveMetadataPayload) => Promise<SaveMetadataResult>
   getAppVersion: () => Promise<string>
+  checkForUpdates: () => Promise<void>
   lookupCurrentBeatmap: (beatmaps?: BeatmapSetSummary[]) => Promise<CurrentBeatmapLookupResult>
   openBeatmapFolder: (folderPath: string) => Promise<void>
   openBeatmapPage: (beatmapSetId: number) => Promise<void>

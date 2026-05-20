@@ -13,6 +13,7 @@ import { isOsuProcessRunning } from './osu-process'
 import { openBeatmapFolder } from './open-beatmap'
 import { checkBeatmapSetOnline } from './beatmap-set-online'
 import { openBeatmapPage } from './open-beatmap-page'
+import { checkForUpdatesNow } from './updater'
 import { getCandidateSongsPaths, getFirstExistingSongsPath } from './osu-paths'
 import {
   dismissWrongTagHint,
@@ -121,6 +122,8 @@ export function registerIpcHandlers(): void {
   )
 
   ipcMain.handle('get-app-version', () => app.getVersion())
+
+  ipcMain.handle('check-for-updates', () => checkForUpdatesNow())
 
   ipcMain.handle('lookup-current-beatmap', (_event, beatmaps?: BeatmapSetSummary[]) => {
     const { songsPath } = getSettings()

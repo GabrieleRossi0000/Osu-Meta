@@ -3,6 +3,7 @@ import { autoUpdater } from 'electron-updater'
 import log from 'electron-log'
 
 let downloadRequested = false
+let manualCheckPending = false
 
 function getWindow(): BrowserWindow | null {
   const win = BrowserWindow.getAllWindows()[0]
@@ -59,8 +60,18 @@ export function initAutoUpdater(): void {
     }
   })
 
-  autoUpdater.on('update-not-available', () => {
+  autoUpdater.on('update-not-available', async () => {
     getWindow()?.webContents.send('updater:up-to-date')
+    if (!manualCheckPending) return
+    manualCheckPending = false
+    const win = getWindow()
+    await dialog.showMessageBox({
+      ...(win ? { browserWindow: win } : {}),
+      type: 'info',
+      title: 'No updates',
+      message: `You are on the latest version (${app.getVersion()}).`,
+      buttons: ['OK']
+    })
   })
 
   autoUpdater.on('update-downloaded', () => {
@@ -70,8 +81,35 @@ export function initAutoUpdater(): void {
   })
 
   setTimeout(() => {
-    void autoUpdater.checkForUpdates().catch((error) => {
-      log.warn('[updater] check failed', error)
-    })
+    void runUpdateCheck(false)
   }, 2500)
+}
+
+async function runUpdateCheck(manual: boolean): Promise<void> {
+  if (manual) manualCheckPending = true
+  try {
+    await autoUpdater.checkForUpdates()
+  } catch (error) {
+    manualCheckPending = false
+    log.warn('[updater] check failed', error)
+    const win = getWindow()
+    await dialog.showMessageBox({
+      ...(win ? { browserWindow: win } : {}),
+      type: 'warning',
+      title: 'Update check failed',
+      message: 'Could not check for updates.',
+      detail:
+        error instanceof Error
+          ? `${error.message}\n\nIf this keeps happening, download the latest installer from GitHub Releases.`
+          : String(error),
+      buttons: ['OK']
+    })
+  }
+}
+
+export function checkForUpdatesNow(): Promise<void> {
+  if (!app.isPackaged) {
+    return Promise.reject(new Error('Updates are only available in the installed app.'))
+  }
+  return runUpdateCheck(true)
 }
