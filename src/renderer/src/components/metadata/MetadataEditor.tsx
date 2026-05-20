@@ -510,7 +510,7 @@ export default function MetadataEditor({
               </Button>
             ) : null}
             <Tooltip
-              label="Copy metadata for the osu! discussion tab"
+              label="Copy metadata for discussion posts"
               multiline
               w={220}
             >

@@ -1,7 +1,9 @@
 import type { BeatmapMetadata } from './types'
 
-function discussionLine(label: string, value: string): string {
-  return `${label}: \`${value}\``
+function discussionLine(label: string, value: string): string | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  return `${label}: \`${trimmed}\``
 }
 
 /** osu! beatmap discussion tab BBCode metadata block. */
@@ -13,5 +15,7 @@ export function formatDiscussionMetadataExport(metadata: BeatmapMetadata): strin
     discussionLine('RomanisedTitle', metadata.title),
     discussionLine('Source', metadata.source),
     discussionLine('Tags', metadata.tags)
-  ].join('\n')
+  ]
+    .filter((line): line is string => line !== null)
+    .join('\n')
 }
