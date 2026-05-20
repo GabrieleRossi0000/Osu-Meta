@@ -24,9 +24,6 @@ win:
     - target: nsis
       arch:
         - x64
-    - target: portable
-      arch:
-        - x64
 nsis:
   artifactName: OsuMeta-${version}-setup.${ext}
   shortcutName: Osu Meta
@@ -36,10 +33,4 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
-portable:
-  artifactName: OsuMeta-${version}-portable.${ext}
 npmRebuild: false
-publish:
-  provider: github
-  owner: GabrieleRossi0000
-  repo: Osu-Meta

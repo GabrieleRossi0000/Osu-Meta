@@ -36,12 +36,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ github.ref_name }}
-          files: |
-            dist/OsuMeta-*.exe
-            dist/latest.yml
-            dist/*.blockmap
+          files: dist/OsuMeta-*-setup.exe
           generate_release_notes: false
           body: |
-            Download the installer or portable build below.
+            Download the Windows installer below.
 
-            The setup installer updates your existing installation in place when you use **Update now** in the app.
+            The app checks GitHub Releases on startup and can update your existing installation in place when you choose **Update now**.

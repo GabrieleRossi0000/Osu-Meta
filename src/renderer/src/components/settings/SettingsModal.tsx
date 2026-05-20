@@ -78,8 +78,9 @@ export default function SettingsModal({
             Updates
           </Text>
           <Text size="xs" c="dimmed" lh={1.5}>
-            When a newer version exists, a system dialog with <Text span fw={600}>Update now</Text>{' '}
-            appears shortly after launch. Use the setup installer (not portable) for in-app updates.
+            On startup the app checks GitHub Releases. If a newer version exists, a system dialog with{' '}
+            <Text span fw={600}>Update now</Text> downloads the latest installer and updates your
+            install in place.
           </Text>
           <Button
             variant="light"

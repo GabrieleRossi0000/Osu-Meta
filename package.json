@@ -1,6 +1,6 @@
 {
   "name": "osu-meta",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "OsuMeta!",
   "main": "./out/main/index.js",
   "author": "GabrieleRossi0000",
@@ -33,7 +33,6 @@
     "dotenv": "^17.4.2",
     "electron-log": "^5.2.0",
     "electron-store": "^8.2.0",
-    "electron-updater": "^6.8.3",
     "iconv-lite": "^0.6.3",
     "osu-catch-stable": "^4.0.1",
     "osu-classes": "^3.1.0",
