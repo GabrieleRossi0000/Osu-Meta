@@ -1,6 +1,6 @@
 {
   "name": "osu-meta",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "OsuMeta!",
   "main": "./out/main/index.js",
   "author": "GabrieleRossi0000",

@@ -27,7 +27,7 @@ import {
   IconTags,
   IconTypography
 } from '@tabler/icons-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { filterBeatmaps } from '@shared/filter-beatmaps'
 import {
   buildImportComboPreview,
@@ -313,19 +313,59 @@ function WebBeatmapPickCard({
   )
 }
 
-function PreviewValue({ value, emptyLabel }: { value: string; emptyLabel: string }): JSX.Element {
+function PreviewValue({
+  value,
+  emptyLabel,
+  className
+}: {
+  value: string
+  emptyLabel: string
+  className?: string
+}): JSX.Element {
   const text = value.trim()
   if (!text) {
     return (
-      <Text size="sm" c="dimmed" fs="italic">
+      <Text size="sm" c="dimmed" fs="italic" className={className}>
         {emptyLabel}
       </Text>
     )
   }
   return (
-    <Text size="sm" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+    <Text
+      size="sm"
+      className={className}
+      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+    >
       {text}
     </Text>
+  )
+}
+
+function ImportPreviewColumn({
+  side,
+  changed,
+  children
+}: {
+  side: 'current' | 'after'
+  changed: boolean
+  children: ReactNode
+}): JSX.Element {
+  const label = side === 'current' ? 'Current' : 'After import'
+  const colClass = [
+    'mv-import-preview-col',
+    side === 'current' ? 'mv-import-preview-col--current' : 'mv-import-preview-col--after',
+    side === 'after' && changed ? 'mv-import-preview-col--after-changed' : ''
+  ]
+    .filter(Boolean)
+    .join(' ')
+
+  return (
+    <Box className={colClass}>
+      <Text size="xs" fw={700} tt="uppercase" className="mv-import-preview-col-label">
+        {label}
+      </Text>
+      {children}
+    </Box>
   )
 }
 
@@ -392,43 +432,65 @@ function ImportPreviewStep({
         Review what will change in your editor. Nothing is saved until you click Import.
       </Text>
 
-      <ScrollArea.Autosize mah={360} offsetScrollbars type="auto">
-        <Stack gap="sm" className="mv-stagger-children">
+      <Group gap="md" className="mv-import-preview-legend">
+        <Group gap={6} wrap="nowrap">
+          <Box className="mv-import-preview-legend-swatch mv-import-preview-legend-swatch--current" />
+          <Text size="xs" fw={600}>
+            Your map (current)
+          </Text>
+        </Group>
+        <Group gap={6} wrap="nowrap">
+          <Box className="mv-import-preview-legend-swatch mv-import-preview-legend-swatch--after" />
+          <Text size="xs" fw={600}>
+            After import
+          </Text>
+        </Group>
+      </Group>
+
+      <ScrollArea.Autosize mah={380} offsetScrollbars type="auto">
+        <Stack gap="sm" className="mv-stagger-children mv-import-preview-list">
           {previews.map(({ label, current, next, changed }) => (
-              <Paper key={label} p="sm" radius="md" bg="dark.6">
-                <Group justify="space-between" mb={6}>
-                  <Text size="xs" fw={600} tt="uppercase" c="dimmed">
+              <Paper
+                key={label}
+                p="sm"
+                radius="md"
+                className={
+                  changed
+                    ? 'mv-import-preview-field mv-import-preview-field--changed'
+                    : 'mv-import-preview-field mv-import-preview-field--unchanged'
+                }
+              >
+                <Group justify="space-between" mb="xs" wrap="nowrap">
+                  <Text size="xs" fw={700} tt="uppercase" className="mv-import-preview-field-name">
                     {label}
                   </Text>
                   {changed ? (
-                    <Badge size="xs" color="yellow" variant="light" className="mv-badge-will-change">
+                    <Badge size="xs" color="yellow" variant="filled" className="mv-badge-will-change">
                       Will change
                     </Badge>
                   ) : (
-                    <Badge size="xs" color="gray" variant="light">
+                    <Badge size="xs" color="gray" variant="outline">
                       Unchanged
                     </Badge>
                   )}
                 </Group>
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-                  <Stack gap={4}>
-                    <Text size="xs" c="dimmed">
-                      Current
-                    </Text>
+                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                  <ImportPreviewColumn side="current" changed={changed}>
                     <PreviewValue value={current} emptyLabel="(empty)" />
-                  </Stack>
-                  <Stack gap={4}>
-                    <Text size="xs" c="dimmed">
-                      After import
-                    </Text>
-                    <PreviewValue value={next} emptyLabel="(empty)" />
-                  </Stack>
+                  </ImportPreviewColumn>
+                  <ImportPreviewColumn side="after" changed={changed}>
+                    <PreviewValue
+                      value={next}
+                      emptyLabel="(empty)"
+                      className={changed ? 'mv-import-preview-value--changed' : undefined}
+                    />
+                  </ImportPreviewColumn>
                 </SimpleGrid>
               </Paper>
             ))}
 
           {canImportComboColours ? (
-            <Paper p="sm" radius="md" bg="dark.6">
+            <Paper p="sm" radius="md" className="mv-import-preview-field mv-import-preview-field--combo">
               <Switch
                 checked={includeComboColours}
                 onChange={(event) => setIncludeComboColours(event.currentTarget.checked)}
@@ -449,34 +511,35 @@ function ImportPreviewStep({
               />
 
               {includeComboColours ? (
-                <Box mt="md" className="mv-combo-reveal">
-                  <Group justify="space-between" mb={6}>
-                    <Text size="xs" fw={600} tt="uppercase" c="dimmed">
+                <Box
+                  mt="md"
+                  className={`mv-combo-reveal mv-import-preview-field ${
+                    comboPreview.changed
+                      ? 'mv-import-preview-field--changed'
+                      : 'mv-import-preview-field--unchanged'
+                  }`}
+                >
+                  <Group justify="space-between" mb="xs" wrap="nowrap">
+                    <Text size="xs" fw={700} tt="uppercase" className="mv-import-preview-field-name">
                       Combo colours ({comboPreview.current.length} → {comboPreview.next.length})
                     </Text>
                     {comboPreview.changed ? (
-                      <Badge size="xs" color="yellow" variant="light" className="mv-badge-will-change">
+                      <Badge size="xs" color="yellow" variant="filled" className="mv-badge-will-change">
                         Will change
                       </Badge>
                     ) : (
-                      <Badge size="xs" color="gray" variant="light">
+                      <Badge size="xs" color="gray" variant="outline">
                         Unchanged
                       </Badge>
                     )}
                   </Group>
-                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-                    <Stack gap={4}>
-                      <Text size="xs" c="dimmed">
-                        Current
-                      </Text>
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="xs">
+                    <ImportPreviewColumn side="current" changed={comboPreview.changed}>
                       <ComboSwatches colours={comboPreview.current} />
-                    </Stack>
-                    <Stack gap={4}>
-                      <Text size="xs" c="dimmed">
-                        After import
-                      </Text>
+                    </ImportPreviewColumn>
+                    <ImportPreviewColumn side="after" changed={comboPreview.changed}>
                       <ComboSwatches colours={comboPreview.next} />
-                    </Stack>
+                    </ImportPreviewColumn>
                   </SimpleGrid>
                 </Box>
               ) : null}
@@ -750,7 +813,7 @@ export default function ImportMetadataModal({
       opened={opened}
       onClose={handleClose}
       title={modalTitle}
-      size={picked ? 'md' : 'lg'}
+      size={selectedMode ? 'lg' : picked ? 'md' : 'lg'}
       centered
       overlayProps={modalOverlayProps}
       transitionProps={modalTransitionProps}

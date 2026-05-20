@@ -719,6 +719,112 @@
   }
 }
 
+/* Import preview — side-by-side comparison */
+.mv-import-preview-legend {
+  padding: 0.5rem 0.65rem;
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-dark-7);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.mv-import-preview-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex-shrink: 0;
+
+  &--current {
+    background: color-mix(in srgb, var(--mantine-color-blue-6) 55%, var(--mantine-color-dark-5));
+    border: 1px solid var(--mantine-color-blue-5);
+  }
+
+  &--after {
+    background: color-mix(in srgb, var(--mantine-color-teal-6) 50%, var(--mantine-color-dark-5));
+    border: 1px solid var(--mantine-color-teal-5);
+  }
+}
+
+.mv-import-preview-field {
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: var(--mantine-color-dark-7);
+
+  &--changed {
+    border-color: color-mix(in srgb, var(--mantine-color-yellow-6) 55%, transparent);
+    background: color-mix(in srgb, var(--mantine-color-yellow-9) 14%, var(--mantine-color-dark-7));
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--mantine-color-yellow-6) 22%, transparent),
+      inset 3px 0 0 var(--mantine-color-yellow-6);
+  }
+
+  &--unchanged {
+    opacity: 0.72;
+    border-color: rgba(255, 255, 255, 0.04);
+    background: color-mix(in srgb, var(--mantine-color-dark-8) 88%, var(--mantine-color-dark-7));
+  }
+
+  &--combo {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: var(--mantine-color-dark-7);
+    opacity: 1;
+  }
+}
+
+.mv-import-preview-field-name {
+  color: var(--mantine-color-bright);
+  letter-spacing: 0.04em;
+}
+
+.mv-import-preview-col {
+  padding: 0.55rem 0.65rem;
+  border-radius: var(--mantine-radius-sm);
+  min-height: 2.5rem;
+
+  &--current {
+    background: color-mix(in srgb, var(--mantine-color-blue-9) 38%, var(--mantine-color-dark-8));
+    border: 1px solid color-mix(in srgb, var(--mantine-color-blue-6) 35%, transparent);
+    border-left: 3px solid var(--mantine-color-blue-5);
+  }
+
+  &--after {
+    background: color-mix(in srgb, var(--mantine-color-dark-6) 92%, var(--mantine-color-dark-8));
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 3px solid var(--mantine-color-dark-4);
+  }
+
+  &--after-changed {
+    background: color-mix(in srgb, var(--mantine-color-teal-9) 42%, var(--mantine-color-dark-8));
+    border: 1px solid color-mix(in srgb, var(--mantine-color-teal-6) 40%, transparent);
+    border-left: 3px solid var(--mantine-color-teal-5);
+  }
+}
+
+.mv-import-preview-col-label {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  letter-spacing: 0.06em;
+}
+
+.mv-import-preview-col--current .mv-import-preview-col-label {
+  color: var(--mantine-color-blue-3);
+}
+
+.mv-import-preview-col--after .mv-import-preview-col-label {
+  color: var(--mantine-color-dimmed);
+}
+
+.mv-import-preview-col--after-changed .mv-import-preview-col-label {
+  color: var(--mantine-color-teal-3);
+}
+
+.mv-import-preview-value--changed {
+  color: var(--mantine-color-teal-1);
+}
+
+.mv-import-preview-list .mv-import-preview-field--changed + .mv-import-preview-field--unchanged,
+.mv-import-preview-list .mv-import-preview-field--unchanged + .mv-import-preview-field--changed {
+  margin-top: 0.15rem;
+}
+
 /* —— Beatmap cards —— */
 .mv-beatmap-card {
   border-radius: var(--mv-radius-soft) !important;
