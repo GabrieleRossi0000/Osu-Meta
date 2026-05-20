@@ -6,7 +6,9 @@ import type {
   CurrentBeatmapLookupResult,
   DetectedPath,
   LoadedMetadata,
+  RankedSourceSuggestionResult,
   SaveMetadataResult,
+  SuggestRankedSourceRequest,
   TagSectionsExpanded
 } from '../shared/types'
 
@@ -18,15 +20,25 @@ export interface OsuMetaAPI {
   setSongsPath: (path: string) => Promise<string>
   scanBeatmaps: (force?: boolean) => Promise<BeatmapSetSummary[]>
   loadMetadata: (folderPath: string) => Promise<LoadedMetadata>
-  saveMetadata: (folderPath: string, metadata: BeatmapMetadata) => Promise<SaveMetadataResult>
+  saveMetadata: (
+    folderPath: string,
+    metadata: BeatmapMetadata,
+    comboColours: BeatmapComboColour[]
+  ) => Promise<SaveMetadataResult>
   getAppVersion: () => Promise<string>
   lookupCurrentBeatmap: (beatmaps?: BeatmapSetSummary[]) => Promise<CurrentBeatmapLookupResult>
   openBeatmapFolder: (folderPath: string) => Promise<void>
   openBeatmapPage: (beatmapSetId: number) => Promise<void>
   checkBeatmapSetOnline: (beatmapSetId: number) => Promise<boolean>
+  suggestRankedSource: (
+    request: SuggestRankedSourceRequest
+  ) => Promise<RankedSourceSuggestionResult>
+  isOsuApiConfigured: () => Promise<boolean>
   isOsuRunning: () => Promise<boolean>
   isDuplicateWarningIgnored: (folderPath: string) => Promise<boolean>
   setDuplicateWarningIgnored: (folderPath: string, ignored: boolean) => Promise<void>
+  isArtistTitleTagWarningIgnored: (folderPath: string) => Promise<boolean>
+  setArtistTitleTagWarningIgnored: (folderPath: string, ignored: boolean) => Promise<void>
   getDismissedWrongTagHints: (folderPath: string) => Promise<string[]>
   dismissWrongTagHint: (folderPath: string, ruleId: string) => Promise<void>
   setTagSectionsExpanded: (value: TagSectionsExpanded) => Promise<void>

@@ -3,7 +3,15 @@ export interface BeatmapMetadata {
   artistUnicode: string
   title: string
   titleUnicode: string
+  source: string
   tags: string
+}
+
+/** RGB combo colours from `[Colours]` `ComboN` lines (saved as Combo1…ComboN in order). */
+export interface BeatmapComboColour {
+  r: number
+  g: number
+  b: number
 }
 
 export interface BeatmapSetFlags {
@@ -36,16 +44,32 @@ export interface BeatmapDifficultySummary {
 export interface LoadedMetadata {
   metadata: BeatmapMetadata
   mismatched: boolean
+  comboColours: BeatmapComboColour[]
+  comboColoursMismatched: boolean
   diffCount: number
   lockArtistRomanized: boolean
   lockTitleRomanized: boolean
   difficultyVersions: string[]
   difficulties: BeatmapDifficultySummary[]
   creator: string
-  source: string
   isFeaturedArtist: boolean
   isOnOsuWebsite: boolean
 }
+
+export interface RankedSourceSuggestion {
+  source: string
+  beatmapSetId: number
+  artist: string
+  title: string
+  creator: string
+  status: string
+}
+
+export type RankedSourceSuggestionResult =
+  | { kind: 'found'; suggestion: RankedSourceSuggestion }
+  | { kind: 'not_found' }
+  | { kind: 'no_source' }
+  | { kind: 'unavailable'; message: string }
 
 export interface TagSectionsExpanded {
   featured: boolean
@@ -71,12 +95,14 @@ export interface ScanCache {
 export interface AppSettings {
   songsPath: string | null
   ignoredDuplicateFolders: string[]
+  ignoredArtistTitleTagFolders: string[]
   tagSectionsExpanded: TagSectionsExpanded
   dismissedWrongTagHints: Record<string, string[]>
   scanCache: ScanCache | null
   sidebarWidth: number
   featuredArtistCache: Record<string, boolean>
   beatmapSetOnlineCache: Record<string, boolean>
+  sourceSuggestionCache: Record<string, RankedSourceSuggestionResult>
 }
 
 export interface DetectedPath {
@@ -104,4 +130,14 @@ export interface CurrentBeatmapLookupResult {
   metadataFilename: string | null
   displayTitle: string | null
   folderPath: string | null
+}
+
+export interface SuggestRankedSourceRequest {
+  artistUnicode: string
+  artist: string
+  titleUnicode: string
+  title: string
+  beatmapSetId: number | null
+  /** When true, bypass cached negative results and re-query osu!. */
+  refresh?: boolean
 }

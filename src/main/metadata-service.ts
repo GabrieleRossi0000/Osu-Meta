@@ -2,8 +2,9 @@ import {
   applyRomanizedFieldLocks,
   getRomanizedFieldLocks
 } from '../shared/romanization'
+import { comboColoursEqual } from '../shared/combo-colours'
 import { metadataEquals } from '../shared/metadata-utils'
-import type { BeatmapMetadata, LoadedMetadata, SaveMetadataResult } from '../shared/types'
+import type { BeatmapComboColour, BeatmapMetadata, LoadedMetadata, SaveMetadataResult } from '../shared/types'
 import { getOsuFilesInSet } from './beatmap-scanner'
 import { inspectOsuBeatmapSet } from './beatmap-set-online'
 import { resolveBeatmapSetId } from '../shared/beatmap-set-id'
@@ -11,10 +12,12 @@ import { basename } from 'path'
 import { readDifficultySummaryFromText } from './osu-difficulty'
 import {
   readBeatmapSetIdFromContent,
+  readComboColoursFromContent,
   readMetadataFieldFromContent,
   readMetadataFromContent,
   readOsuFileText,
   readVersionFromContent,
+  updateComboColoursInFile,
   updateMetadataInFile
 } from './osu-file'
 
@@ -26,12 +29,22 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
 
   const texts = osuFiles.map((filePath) => readOsuFileText(filePath))
   const metadatas = texts.map((text) => readMetadataFromContent(text))
+  const comboLists = texts.map((text) => readComboColoursFromContent(text))
   const primary = metadatas[0]
   let mismatched = false
 
   for (let i = 1; i < metadatas.length; i++) {
     if (!metadataEquals(primary, metadatas[i])) {
       mismatched = true
+      break
+    }
+  }
+
+  const primaryCombo = comboLists[0]
+  let comboColoursMismatched = false
+  for (let i = 1; i < comboLists.length; i++) {
+    if (!comboColoursEqual(primaryCombo, comboLists[i])) {
+      comboColoursMismatched = true
       break
     }
   }
@@ -44,7 +57,6 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
     .map((text, index) => readDifficultySummaryFromText(text, basename(osuFiles[index])))
     .sort((a, b) => a.starRating - b.starRating || a.version.localeCompare(b.version))
   const creator = readMetadataFieldFromContent(texts[0], 'Creator')
-  const source = readMetadataFieldFromContent(texts[0], 'Source')
   const beatmapSetId = readBeatmapSetIdFromContent(texts[0])
   const resolvedSetId = resolveBeatmapSetId({
     beatmapSetId: beatmapSetId > 0 ? beatmapSetId : null,
@@ -58,13 +70,14 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
   return {
     metadata,
     mismatched,
+    comboColours: primaryCombo,
+    comboColoursMismatched,
     diffCount: osuFiles.length,
     lockArtistRomanized: locks.artist,
     lockTitleRomanized: locks.title,
     difficultyVersions,
     difficulties,
     creator,
-    source,
     isFeaturedArtist: osuInfo.isFeaturedArtist,
     isOnOsuWebsite: osuInfo.online
   }
@@ -72,7 +85,8 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
 
 export function saveSetMetadata(
   folderPath: string,
-  metadata: BeatmapMetadata
+  metadata: BeatmapMetadata,
+  comboColours: BeatmapComboColour[]
 ): SaveMetadataResult {
   const osuFiles = getOsuFilesInSet(folderPath)
   if (osuFiles.length === 0) {
@@ -84,6 +98,7 @@ export function saveSetMetadata(
 
   for (const filePath of osuFiles) {
     updateMetadataInFile(filePath, normalized)
+    updateComboColoursInFile(filePath, comboColours)
   }
 
   return { updatedFiles: osuFiles.length }

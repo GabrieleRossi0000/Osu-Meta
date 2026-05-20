@@ -22,9 +22,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { filterBeatmaps } from '@shared/filter-beatmaps'
 import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
 import { matchBeatmapByDisplayTitle } from '@shared/match-display-name'
-import { metadataEquals } from '@shared/metadata-utils'
+import { editorStateEquals } from '@shared/metadata-utils'
 import { applyRomanizedFieldLocks, getRomanizedFieldLocks } from '@shared/romanization'
 import type {
+  BeatmapComboColour,
   BeatmapDifficultySummary,
   BeatmapMetadata,
   BeatmapSetSummary,
@@ -60,6 +61,7 @@ const emptyMetadata = (): BeatmapMetadata => ({
   artistUnicode: '',
   title: '',
   titleUnicode: '',
+  source: '',
   tags: ''
 })
 
@@ -159,13 +161,15 @@ function MainScreen({
   const [selected, setSelected] = useState<BeatmapSetSummary | null>(null)
   const [metadata, setMetadata] = useState<BeatmapMetadata>(emptyMetadata())
   const [savedMetadata, setSavedMetadata] = useState<BeatmapMetadata | null>(null)
+  const [comboColours, setComboColours] = useState<BeatmapComboColour[]>([])
+  const [savedComboColours, setSavedComboColours] = useState<BeatmapComboColour[] | null>(null)
   const [difficulties, setDifficulties] = useState<BeatmapDifficultySummary[]>([])
   const [difficultyVersions, setDifficultyVersions] = useState<string[]>([])
   const [creator, setCreator] = useState('')
-  const [source, setSource] = useState('')
   const [isFeaturedArtist, setIsFeaturedArtist] = useState(false)
   const [isOnOsuWebsite, setIsOnOsuWebsite] = useState(false)
   const [mismatched, setMismatched] = useState(false)
+  const [comboColoursMismatched, setComboColoursMismatched] = useState(false)
   const [tagSectionsExpanded, setTagSectionsExpanded] = useState<TagSectionsExpanded>({
     featured: true,
     source: true,
@@ -199,8 +203,11 @@ function MainScreen({
   )
 
   const isDirty = useMemo(
-    () => savedMetadata !== null && !metadataEquals(metadata, savedMetadata),
-    [metadata, savedMetadata]
+    () =>
+      savedMetadata !== null &&
+      savedComboColours !== null &&
+      !editorStateEquals(metadata, savedMetadata, comboColours, savedComboColours),
+    [metadata, savedMetadata, comboColours, savedComboColours]
   )
 
   const loadBeatmaps = useCallback(async (force = false): Promise<BeatmapSetSummary[]> => {
@@ -248,13 +255,15 @@ function MainScreen({
       const loaded = await window.api.loadMetadata(set.folderPath)
       setMetadata(loaded.metadata)
       setSavedMetadata(loaded.metadata)
+      setComboColours(loaded.comboColours)
+      setSavedComboColours(loaded.comboColours)
       setDifficulties(loaded.difficulties)
       setDifficultyVersions(loaded.difficultyVersions)
       setCreator(loaded.creator)
-      setSource(loaded.source)
       setIsFeaturedArtist(loaded.isFeaturedArtist)
       setIsOnOsuWebsite(loaded.isOnOsuWebsite)
       setMismatched(loaded.mismatched)
+      setComboColoursMismatched(loaded.comboColoursMismatched)
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to load metadata.')
     } finally {
@@ -280,9 +289,11 @@ function MainScreen({
     setStatus(null)
     try {
       const toSave = applyRomanizedFieldLocks(metadata, getRomanizedFieldLocks(metadata))
-      const result = await window.api.saveMetadata(selected.folderPath, toSave)
+      const result = await window.api.saveMetadata(selected.folderPath, toSave, comboColours)
       setMismatched(false)
+      setComboColoursMismatched(false)
       setSavedMetadata(toSave)
+      setSavedComboColours(comboColours)
       setStatus(`Updated ${result.updatedFiles} .osu file(s).`)
       const sets = await loadBeatmaps()
       const refreshed = sets.find((b) => b.folderPath === selected.folderPath)
@@ -294,7 +305,7 @@ function MainScreen({
       setShowMismatchConfirm(false)
       setShowSaveSafety(false)
     }
-  }, [selected, metadata, loadBeatmaps])
+  }, [selected, metadata, comboColours, loadBeatmaps])
 
   const handleSave = useCallback((): void => {
     if (!selected) return
@@ -303,12 +314,12 @@ function MainScreen({
 
   const confirmSaveSafety = useCallback((): void => {
     setShowSaveSafety(false)
-    if (mismatched) {
+    if (mismatched || comboColoursMismatched) {
       setShowMismatchConfirm(true)
       return
     }
     void performSave()
-  }, [mismatched, performSave])
+  }, [mismatched, comboColoursMismatched, performSave])
 
   const fetchCurrentMap = useCallback(async (): Promise<void> => {
     setFetchingCurrent(true)
@@ -441,6 +452,9 @@ function MainScreen({
       try {
         const loaded = await window.api.loadMetadata(sourceFolderPath)
         setMetadata((current) => applyMetadataImport(current, loaded.metadata, mode))
+        if (mode === 'full') {
+          setComboColours(loaded.comboColours)
+        }
         setShowImportModal(false)
         const labels: Record<ImportMetadataMode, string> = {
           full: 'Imported full metadata.',
@@ -529,10 +543,11 @@ function MainScreen({
                   difficulties={difficulties}
                   difficultyVersions={difficultyVersions}
                   creator={creator}
-                  source={source}
                   isFeaturedArtist={isFeaturedArtist}
                   isOnOsuWebsite={isOnOsuWebsite}
                   mismatched={mismatched}
+                  comboColours={comboColours}
+                  comboColoursMismatched={comboColoursMismatched}
                   isDirty={isDirty}
                   loading={loadingMeta}
                   saving={saving}
@@ -540,6 +555,7 @@ function MainScreen({
                   tagSectionsExpanded={tagSectionsExpanded}
                   onTagSectionsExpandedChange={handleTagSectionsExpandedChange}
                   onChange={setMetadata}
+                  onComboColoursChange={setComboColours}
                   onSave={handleSave}
                   onOpenFolder={openSelectedFolder}
                   onOpenBeatmapPage={openSelectedBeatmapPage}
@@ -601,7 +617,8 @@ function MainScreen({
         centered
       >
         <Text size="sm" mb="md">
-          You have unsaved metadata edits. Discard them and open the other mapset?
+          You have unsaved edits (metadata and/or combo colours). Discard them and open the other
+          mapset?
         </Text>
         <Group justify="flex-end" gap="sm">
           <Button
@@ -626,7 +643,8 @@ function MainScreen({
         centered
       >
         <Text size="sm" mb="md">
-          You have unsaved metadata edits. Close anyway and lose your changes?
+          You have unsaved edits (metadata and/or combo colours). Close anyway and lose your
+          changes?
         </Text>
         <Group justify="flex-end" gap="sm">
           <Button variant="default" onClick={() => setShowUnsavedClose(false)}>
@@ -647,12 +665,12 @@ function MainScreen({
       <Modal
         opened={showMismatchConfirm}
         onClose={() => setShowMismatchConfirm(false)}
-        title="Unify mismatched metadata?"
+        title="Unify mismatched difficulties?"
         centered
       >
         <Text size="sm" mb="md">
-          Difficulties in this set have different metadata values. Saving will apply your edits to
-          every .osu file.
+          Some difficulties differ in metadata or combo colours. Saving will apply your current
+          editor values to every .osu file in this set.
         </Text>
         <Group justify="flex-end" gap="sm">
           <Button variant="default" onClick={() => setShowMismatchConfirm(false)}>

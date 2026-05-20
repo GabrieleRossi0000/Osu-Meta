@@ -2,12 +2,15 @@ import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
+  BeatmapComboColour,
   BeatmapMetadata,
   BeatmapSetSummary,
   CurrentBeatmapLookupResult,
   DetectedPath,
   LoadedMetadata,
+  RankedSourceSuggestionResult,
   SaveMetadataResult,
+  SuggestRankedSourceRequest,
   TagSectionsExpanded
 } from '../shared/types'
 
@@ -24,8 +27,10 @@ const api = {
     ipcRenderer.invoke('load-metadata', folderPath),
   saveMetadata: (
     folderPath: string,
-    metadata: BeatmapMetadata
-  ): Promise<SaveMetadataResult> => ipcRenderer.invoke('save-metadata', folderPath, metadata),
+    metadata: BeatmapMetadata,
+    comboColours: BeatmapComboColour[]
+  ): Promise<SaveMetadataResult> =>
+    ipcRenderer.invoke('save-metadata', folderPath, metadata, comboColours),
   getAppVersion: (): Promise<string> => ipcRenderer.invoke('get-app-version'),
   lookupCurrentBeatmap: (beatmaps?: BeatmapSetSummary[]): Promise<CurrentBeatmapLookupResult> =>
     ipcRenderer.invoke('lookup-current-beatmap', beatmaps),
@@ -35,11 +40,18 @@ const api = {
     ipcRenderer.invoke('open-beatmap-page', beatmapSetId),
   checkBeatmapSetOnline: (beatmapSetId: number): Promise<boolean> =>
     ipcRenderer.invoke('check-beatmap-set-online', beatmapSetId),
+  suggestRankedSource: (request: SuggestRankedSourceRequest): Promise<RankedSourceSuggestionResult> =>
+    ipcRenderer.invoke('suggest-ranked-source', request),
+  isOsuApiConfigured: (): Promise<boolean> => ipcRenderer.invoke('is-osu-api-configured'),
   isOsuRunning: (): Promise<boolean> => ipcRenderer.invoke('is-osu-running'),
   isDuplicateWarningIgnored: (folderPath: string): Promise<boolean> =>
     ipcRenderer.invoke('is-duplicate-warning-ignored', folderPath),
   setDuplicateWarningIgnored: (folderPath: string, ignored: boolean): Promise<void> =>
     ipcRenderer.invoke('set-duplicate-warning-ignored', folderPath, ignored),
+  isArtistTitleTagWarningIgnored: (folderPath: string): Promise<boolean> =>
+    ipcRenderer.invoke('is-artist-title-tag-warning-ignored', folderPath),
+  setArtistTitleTagWarningIgnored: (folderPath: string, ignored: boolean): Promise<void> =>
+    ipcRenderer.invoke('set-artist-title-tag-warning-ignored', folderPath, ignored),
   getDismissedWrongTagHints: (folderPath: string): Promise<string[]> =>
     ipcRenderer.invoke('get-dismissed-wrong-tag-hints', folderPath),
   dismissWrongTagHint: (folderPath: string, ruleId: string): Promise<void> =>

@@ -29,6 +29,7 @@
     "@mantine/hooks": "^8.3.8",
     "@tabler/icons-react": "^3.35.0",
     "@tanstack/react-virtual": "^3.13.24",
+    "dotenv": "^17.4.2",
     "electron-log": "^5.2.0",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.8.3",
@@ -39,7 +40,8 @@
     "osu-mania-stable": "^5.0.1",
     "osu-parsers": "^4.1.7",
     "osu-standard-stable": "^5.0.1",
-    "osu-taiko-stable": "^5.0.1"
+    "osu-taiko-stable": "^5.0.1",
+    "react-colorful": "^5.7.0"
   },
   "devDependencies": {
     "@electron-toolkit/eslint-config-ts": "^1.0.1",

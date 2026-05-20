@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs'
 import iconv from 'iconv-lite'
-import type { BeatmapMetadata } from '../shared/types'
+import type { BeatmapComboColour, BeatmapMetadata } from '../shared/types'
+import { formatOsuComboLine, parseOsuRgbValue } from '../shared/combo-colours'
 
 const METADATA_SECTION = '[Metadata]'
 const EDITABLE_KEYS: (keyof BeatmapMetadata)[] = [
@@ -8,6 +9,7 @@ const EDITABLE_KEYS: (keyof BeatmapMetadata)[] = [
   'artistUnicode',
   'title',
   'titleUnicode',
+  'source',
   'tags'
 ]
 
@@ -16,6 +18,7 @@ const KEY_MAP: Record<keyof BeatmapMetadata, string> = {
   artistUnicode: 'ArtistUnicode',
   title: 'Title',
   titleUnicode: 'TitleUnicode',
+  source: 'Source',
   tags: 'Tags'
 }
 
@@ -152,6 +155,7 @@ function emptyMetadata(): BeatmapMetadata {
     artistUnicode: '',
     title: '',
     titleUnicode: '',
+    source: '',
     tags: ''
   }
 }
@@ -220,5 +224,116 @@ export function updateMetadataInFile(
     newLines.splice(sectionEnd, 0, ...missingLines)
   }
 
+  writeFileSync(filePath, encodeOsuFile(joinLines(newLines, eol), encoding))
+}
+
+const COLOURS_SECTION = '[Colours]'
+const HIT_OBJECTS_SECTION = '[HitObjects]'
+
+function findSectionStart(lines: string[], sectionHeader: string): number {
+  return lines.findIndex((line) => line.trim() === sectionHeader)
+}
+
+export interface ParsedColoursSection {
+  combos: BeatmapComboColour[]
+  /** Non-`ComboN` lines inside `[Colours]` (e.g. `SliderBorder`), kept verbatim on save. */
+  otherLines: string[]
+  sectionStart: number
+  sectionEnd: number
+}
+
+export function parseColoursSectionFromLines(lines: string[]): ParsedColoursSection {
+  const sectionStart = findSectionStart(lines, COLOURS_SECTION)
+  if (sectionStart === -1) {
+    return { combos: [], otherLines: [], sectionStart: -1, sectionEnd: -1 }
+  }
+
+  let sectionEnd = lines.length
+  for (let i = sectionStart + 1; i < lines.length; i++) {
+    const t = lines[i].trim()
+    if (t.startsWith('[') && t.endsWith(']')) {
+      sectionEnd = i
+      break
+    }
+  }
+
+  const comboEntries: { index: number; colour: BeatmapComboColour }[] = []
+  const otherLines: string[] = []
+
+  for (let i = sectionStart + 1; i < sectionEnd; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('//')) {
+      continue
+    }
+
+    const comboMatch = trimmed.match(/^Combo(\d+)\s*:\s*(.+)$/)
+    if (comboMatch) {
+      const parsed = parseOsuRgbValue(comboMatch[2])
+      if (parsed) {
+        comboEntries.push({ index: Number(comboMatch[1]), colour: parsed })
+      }
+      continue
+    }
+
+    otherLines.push(line)
+  }
+
+  comboEntries.sort((a, b) => a.index - b.index)
+  return {
+    combos: comboEntries.map((e) => e.colour),
+    otherLines,
+    sectionStart,
+    sectionEnd
+  }
+}
+
+export function readComboColoursFromContent(text: string): BeatmapComboColour[] {
+  const lines = splitLines(text)
+  return parseColoursSectionFromLines(lines).combos
+}
+
+export function updateComboColoursInFile(
+  filePath: string,
+  combos: BeatmapComboColour[]
+): void {
+  const buffer = readOsuFileBuffer(filePath)
+  const { text, encoding } = decodeOsuFile(buffer)
+  const eol = detectLineEnding(text)
+  const lines = splitLines(text)
+  const parsed = parseColoursSectionFromLines(lines)
+
+  const comboBodyLines = combos.map((c, i) => formatOsuComboLine(i + 1, c))
+  const innerLines = [...comboBodyLines, ...parsed.otherLines]
+  const hasContent = innerLines.length > 0
+
+  if (!hasContent) {
+    if (parsed.sectionStart === -1) {
+      return
+    }
+    const newLines = [...lines.slice(0, parsed.sectionStart), ...lines.slice(parsed.sectionEnd)]
+    writeFileSync(filePath, encodeOsuFile(joinLines(newLines, eol), encoding))
+    return
+  }
+
+  const blockLines = [COLOURS_SECTION, ...innerLines]
+
+  if (parsed.sectionStart === -1) {
+    const hoIdx = findSectionStart(lines, HIT_OBJECTS_SECTION)
+    let newLines: string[]
+    if (hoIdx === -1) {
+      newLines = [...lines, '', ...blockLines, '']
+    } else {
+      newLines = [...lines.slice(0, hoIdx), ...blockLines, '', ...lines.slice(hoIdx)]
+    }
+    writeFileSync(filePath, encodeOsuFile(joinLines(newLines, eol), encoding))
+    return
+  }
+
+  const newLines = [
+    ...lines.slice(0, parsed.sectionStart),
+    ...blockLines,
+    ...lines.slice(parsed.sectionEnd)
+  ]
   writeFileSync(filePath, encodeOsuFile(joinLines(newLines, eol), encoding))
 }

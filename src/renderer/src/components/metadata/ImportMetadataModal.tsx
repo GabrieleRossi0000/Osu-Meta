@@ -39,7 +39,7 @@ const IMPORT_OPTIONS: ImportOption[] = [
   {
     mode: 'full',
     title: 'Import full metadata',
-    description: 'Artist, romanized artist, title, romanized title, and tags — all fields replaced.',
+    description: 'Artist, romanized artist, title, romanized title, source, and tags — all fields replaced.',
     icon: IconTypography,
     color: 'primary'
   },
@@ -53,7 +53,7 @@ const IMPORT_OPTIONS: ImportOption[] = [
   {
     mode: 'song',
     title: 'Import song metadata',
-    description: 'Replace artist and title fields only (unicode and romanized). Tags stay unchanged.',
+    description: 'Replace artist and title fields (unicode and romanized) and source. Tags stay unchanged.',
     icon: IconMusic,
     color: 'grape'
   }
@@ -84,7 +84,8 @@ export function applyMetadataImport(
     artist: source.artist,
     artistUnicode: source.artistUnicode,
     title: source.title,
-    titleUnicode: source.titleUnicode
+    titleUnicode: source.titleUnicode,
+    source: source.source
   }
 }
 

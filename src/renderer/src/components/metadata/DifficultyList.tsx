@@ -8,7 +8,7 @@ interface DifficultyListProps {
 }
 
 export default function DifficultyList({ difficulties }: DifficultyListProps): JSX.Element | null {
-  const [open, setOpen] = useState(false)
+  const [open, setOpen] = useState(true)
 
   const sorted = useMemo(
     () =>

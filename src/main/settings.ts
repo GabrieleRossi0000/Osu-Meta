@@ -1,5 +1,5 @@
 import Store from 'electron-store'
-import type { AppSettings, ScanCache, TagSectionsExpanded } from '../shared/types'
+import type { AppSettings, RankedSourceSuggestionResult, ScanCache, TagSectionsExpanded } from '../shared/types'
 
 const DEFAULT_TAG_SECTIONS: TagSectionsExpanded = {
   featured: true,
@@ -15,12 +15,14 @@ const store = new Store<AppSettings>({
   defaults: {
     songsPath: null,
     ignoredDuplicateFolders: [],
+    ignoredArtistTitleTagFolders: [],
     tagSectionsExpanded: DEFAULT_TAG_SECTIONS,
     dismissedWrongTagHints: {},
     scanCache: null,
     sidebarWidth: 256,
     featuredArtistCache: {},
-    beatmapSetOnlineCache: {}
+    beatmapSetOnlineCache: {},
+    sourceSuggestionCache: {}
   }
 })
 
@@ -28,12 +30,14 @@ export function getSettings(): AppSettings {
   return {
     songsPath: store.get('songsPath'),
     ignoredDuplicateFolders: store.get('ignoredDuplicateFolders') ?? [],
+    ignoredArtistTitleTagFolders: store.get('ignoredArtistTitleTagFolders') ?? [],
     tagSectionsExpanded: store.get('tagSectionsExpanded') ?? DEFAULT_TAG_SECTIONS,
     dismissedWrongTagHints: store.get('dismissedWrongTagHints') ?? {},
     scanCache: store.get('scanCache') ?? null,
     sidebarWidth: store.get('sidebarWidth') ?? 256,
     featuredArtistCache: store.get('featuredArtistCache') ?? {},
-    beatmapSetOnlineCache: store.get('beatmapSetOnlineCache') ?? {}
+    beatmapSetOnlineCache: store.get('beatmapSetOnlineCache') ?? {},
+    sourceSuggestionCache: store.get('sourceSuggestionCache') ?? {}
   }
 }
 
@@ -65,6 +69,22 @@ export function setDuplicateWarningIgnored(folderPath: string, ignored: boolean)
       : [...list, folderPath]
     : list.filter((entry) => entry.toLowerCase() !== key)
   store.set('ignoredDuplicateFolders', next)
+}
+
+export function isArtistTitleTagWarningIgnored(folderPath: string): boolean {
+  const list = store.get('ignoredArtistTitleTagFolders') ?? []
+  return list.some((entry) => entry.toLowerCase() === folderPath.toLowerCase())
+}
+
+export function setArtistTitleTagWarningIgnored(folderPath: string, ignored: boolean): void {
+  const list = store.get('ignoredArtistTitleTagFolders') ?? []
+  const key = folderPath.toLowerCase()
+  const next = ignored
+    ? list.some((entry) => entry.toLowerCase() === key)
+      ? list
+      : [...list, folderPath]
+    : list.filter((entry) => entry.toLowerCase() !== key)
+  store.set('ignoredArtistTitleTagFolders', next)
 }
 
 export function getTagSectionsExpanded(): TagSectionsExpanded {
@@ -122,4 +142,20 @@ export function setBeatmapSetOnlineCached(setId: number, online: boolean): void 
   const cache = { ...(store.get('beatmapSetOnlineCache') ?? {}) }
   cache[String(setId)] = online
   store.set('beatmapSetOnlineCache', cache)
+}
+
+export function getSourceSuggestionCached(
+  cacheKey: string
+): RankedSourceSuggestionResult | undefined {
+  const cache = store.get('sourceSuggestionCache') ?? {}
+  return cache[cacheKey]
+}
+
+export function setSourceSuggestionCached(
+  cacheKey: string,
+  result: RankedSourceSuggestionResult
+): void {
+  const cache = { ...(store.get('sourceSuggestionCache') ?? {}) }
+  cache[cacheKey] = result
+  store.set('sourceSuggestionCache', cache)
 }

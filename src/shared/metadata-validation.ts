@@ -11,7 +11,7 @@ export interface MetadataValidationIssue {
 
 export function getMetadataValidationIssues(
   metadata: BeatmapMetadata,
-  options: { mismatched: boolean }
+  options: { mismatched: boolean; comboColoursMismatched?: boolean }
 ): MetadataValidationIssue[] {
   const issues: MetadataValidationIssue[] = []
 
@@ -19,6 +19,14 @@ export function getMetadataValidationIssues(
     issues.push({
       id: 'mismatched',
       message: 'Difficulties in this set have different metadata values.',
+      severity: 'warning'
+    })
+  }
+
+  if (options.comboColoursMismatched) {
+    issues.push({
+      id: 'combo-colours-mismatched',
+      message: 'Difficulties in this set have different combo colours in [Colours].',
       severity: 'warning'
     })
   }

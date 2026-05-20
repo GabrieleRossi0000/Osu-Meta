@@ -12,13 +12,17 @@ import {
   dismissWrongTagHint,
   getDismissedWrongTagHints,
   getSettings,
+  isArtistTitleTagWarningIgnored,
   isDuplicateWarningIgnored,
+  setArtistTitleTagWarningIgnored,
   setDuplicateWarningIgnored,
   setSongsPath,
   setSidebarWidth,
   setTagSectionsExpanded
 } from './settings'
-import type { BeatmapMetadata, BeatmapSetSummary, TagSectionsExpanded } from '../shared/types'
+import type { BeatmapComboColour, BeatmapMetadata, BeatmapSetSummary, SuggestRankedSourceRequest, TagSectionsExpanded } from '../shared/types'
+import { suggestRankedSource } from './source-suggestion-service'
+import { isOsuApiConfigured } from './osu-api-client'
 
 const closeBlockedByRenderer = new WeakMap<BrowserWindow, boolean>()
 
@@ -76,8 +80,8 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle(
     'save-metadata',
-    (_event, folderPath: string, metadata: BeatmapMetadata) => {
-      return saveSetMetadata(folderPath, metadata)
+    (_event, folderPath: string, metadata: BeatmapMetadata, comboColours: BeatmapComboColour[]) => {
+      return saveSetMetadata(folderPath, metadata, comboColours ?? [])
     }
   )
 
@@ -109,6 +113,12 @@ export function registerIpcHandlers(): void {
     checkBeatmapSetOnline(beatmapSetId)
   )
 
+  ipcMain.handle('suggest-ranked-source', (_event, request: SuggestRankedSourceRequest) =>
+    suggestRankedSource(request, request.beatmapSetId, { refresh: request.refresh })
+  )
+
+  ipcMain.handle('is-osu-api-configured', () => isOsuApiConfigured())
+
   ipcMain.handle('is-osu-running', () => isOsuProcessRunning())
 
   ipcMain.handle('is-duplicate-warning-ignored', (_event, folderPath: string) => {
@@ -119,6 +129,17 @@ export function registerIpcHandlers(): void {
     'set-duplicate-warning-ignored',
     (_event, folderPath: string, ignored: boolean) => {
       setDuplicateWarningIgnored(folderPath, ignored)
+    }
+  )
+
+  ipcMain.handle('is-artist-title-tag-warning-ignored', (_event, folderPath: string) => {
+    return isArtistTitleTagWarningIgnored(folderPath)
+  })
+
+  ipcMain.handle(
+    'set-artist-title-tag-warning-ignored',
+    (_event, folderPath: string, ignored: boolean) => {
+      setArtistTitleTagWarningIgnored(folderPath, ignored)
     }
   )
 

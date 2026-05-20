@@ -6,6 +6,9 @@ import { registerIpcHandlers } from './ipc'
 import { initAutoUpdater } from './updater'
 import { openExternalUrl } from './open-external-url'
 import { registerBeatmapProtocol, setupBeatmapProtocolHandler } from './protocol'
+import { loadAppEnv } from './load-env'
+
+loadAppEnv()
 
 registerBeatmapProtocol()
 

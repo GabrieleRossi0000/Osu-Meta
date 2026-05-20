@@ -4,20 +4,30 @@ import {
   Badge,
   Box,
   Button,
+  Collapse,
   Group,
   Paper,
   Skeleton,
   Stack,
   Text,
   TextInput,
+  UnstyledButton,
   Tooltip,
   useMantineTheme
 } from '@mantine/core'
-import { IconAlertTriangle, IconCopy, IconFolderOpen, IconWorld } from '@tabler/icons-react'
-import { useMemo } from 'react'
+import {
+  IconAlertTriangle,
+  IconChevronDown,
+  IconChevronRight,
+  IconCopy,
+  IconFolderOpen,
+  IconWorld
+} from '@tabler/icons-react'
+import { useMemo, useState } from 'react'
 import { getMetadataValidationIssues } from '@shared/metadata-validation'
 import { getRomanizedFieldLocks, isAlreadyRomanized } from '@shared/romanization'
 import type {
+  BeatmapComboColour,
   BeatmapDifficultySummary,
   BeatmapMetadata,
   BeatmapSetSummary,
@@ -26,6 +36,8 @@ import type {
 import { parseDisplayName } from '../../utils/parseDisplayName'
 import DifficultyList from './DifficultyList'
 import TagsField from './TagsField'
+import SourceField from './SourceField'
+import ComboColoursEditor from './ComboColoursEditor'
 
 function formatLastModified(ms: number): string {
   return new Date(ms).toLocaleString(undefined, {
@@ -40,10 +52,11 @@ interface MetadataEditorProps {
   difficulties: BeatmapDifficultySummary[]
   difficultyVersions: string[]
   creator: string
-  source: string
   isFeaturedArtist: boolean
   isOnOsuWebsite: boolean
   mismatched: boolean
+  comboColours: BeatmapComboColour[]
+  comboColoursMismatched: boolean
   isDirty: boolean
   loading: boolean
   saving: boolean
@@ -51,6 +64,7 @@ interface MetadataEditorProps {
   tagSectionsExpanded: TagSectionsExpanded
   onTagSectionsExpandedChange: (value: TagSectionsExpanded) => void
   onChange: (metadata: BeatmapMetadata) => void
+  onComboColoursChange: (colours: BeatmapComboColour[]) => void
   onSave: () => void
   onOpenFolder: () => void
   onOpenBeatmapPage: () => void
@@ -63,10 +77,11 @@ export default function MetadataEditor({
   difficulties,
   difficultyVersions,
   creator,
-  source,
   isFeaturedArtist,
   isOnOsuWebsite,
   mismatched,
+  comboColours,
+  comboColoursMismatched,
   isDirty,
   loading,
   saving,
@@ -74,22 +89,33 @@ export default function MetadataEditor({
   tagSectionsExpanded,
   onTagSectionsExpandedChange,
   onChange,
+  onComboColoursChange,
   onSave,
   onOpenFolder,
   onOpenBeatmapPage,
   onOpenImportModal
 }: MetadataEditorProps): JSX.Element {
   const theme = useMantineTheme()
+  const [comboOpen, setComboOpen] = useState(false)
   const { artist: lockArtistRomanized, title: lockTitleRomanized } = useMemo(
     () => getRomanizedFieldLocks(metadata),
     [metadata.artistUnicode, metadata.titleUnicode]
   )
 
-  const { artist, title } = parseDisplayName(selected.displayName, selected.folderName)
+  const fallback = parseDisplayName(selected.displayName, selected.folderName)
+  const displayArtist =
+    metadata.artistUnicode.trim() || metadata.artist.trim() || fallback.artist
+  const displayTitle =
+    metadata.titleUnicode.trim() || metadata.title.trim() || fallback.title
+  const displaySource = metadata.source.trim()
   const hasBg = Boolean(selected.backgroundImageUrl)
   const validationIssues = useMemo(
-    () => getMetadataValidationIssues(metadata, { mismatched }),
-    [metadata, mismatched]
+    () =>
+      getMetadataValidationIssues(metadata, {
+        mismatched,
+        comboColoursMismatched
+      }),
+    [metadata, mismatched, comboColoursMismatched]
   )
 
   const update = (key: keyof BeatmapMetadata, value: string): void => {
@@ -154,8 +180,8 @@ export default function MetadataEditor({
               size="xl"
               style={{ textShadow: '0 2px 12px rgba(0,0,0,0.5)', flex: 1, minWidth: 0 }}
             >
-              {artist}
-              {title ? ` - ${title}` : ''}
+              {displayArtist}
+              {displayTitle ? ` - ${displayTitle}` : ''}
             </Text>
             {isOnOsuWebsite && (
               <Tooltip label="Open web beatmap page">
@@ -186,6 +212,15 @@ export default function MetadataEditor({
               </Badge>
             )}
           </Group>
+          {displaySource ? (
+            <Text
+              size="sm"
+              c="dimmed"
+              style={{ textShadow: '0 1px 8px rgba(0,0,0,0.45)' }}
+            >
+              {displaySource}
+            </Text>
+          ) : null}
           <Text size="sm" c="dimmed" className="mv-font-difficulties">
             {selected.folderName} · {selected.diffCount} difficult
             {selected.diffCount === 1 ? 'y' : 'ies'}
@@ -226,7 +261,7 @@ export default function MetadataEditor({
               variant="light"
             >
               {issue.message}
-              {issue.id === 'mismatched'
+              {issue.id === 'mismatched' || issue.id === 'combo-colours-mismatched'
                 ? ' Saving will unify all .osu files in this set.'
                 : ''}
             </Alert>
@@ -274,13 +309,21 @@ export default function MetadataEditor({
             />
           </Box>
 
+          <SourceField
+            selected={selected}
+            metadata={metadata}
+            onChange={(source) => update('source', source)}
+          />
+
           <TagsField
             folderPath={selected.folderPath}
             tags={metadata.tags}
+            artistUnicode={metadata.artistUnicode}
+            artist={metadata.artist}
             titleUnicode={metadata.titleUnicode}
             title={metadata.title}
             folderName={selected.folderName}
-            source={source}
+            source={metadata.source}
             difficultyVersions={difficultyVersions}
             creator={creator}
             isFeaturedArtist={isFeaturedArtist}
@@ -288,6 +331,39 @@ export default function MetadataEditor({
             onTagSectionsExpandedChange={onTagSectionsExpandedChange}
             onChange={(tags) => update('tags', tags)}
           />
+
+          <Box mt="md">
+            <UnstyledButton
+              onClick={() => setComboOpen((value) => !value)}
+              style={{
+                width: '100%',
+                borderRadius: 8,
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(255, 255, 255, 0.02)',
+                padding: '10px 12px'
+              }}
+            >
+              <Group justify="space-between" wrap="nowrap">
+                <Group gap={8} wrap="nowrap">
+                  {comboOpen ? (
+                    <IconChevronDown size={16} stroke={2.75} />
+                  ) : (
+                    <IconChevronRight size={16} stroke={2.75} />
+                  )}
+                  <Text fw={600} size="sm">
+                    Combo colours
+                  </Text>
+                </Group>
+                <Badge variant="light" color="blue">
+                  {comboColours.length}
+                </Badge>
+              </Group>
+            </UnstyledButton>
+
+            <Collapse in={comboOpen} transitionDuration={220} mt="sm">
+              <ComboColoursEditor colours={comboColours} onChange={onComboColoursChange} />
+            </Collapse>
+          </Box>
 
           <Group gap="sm" align="center">
             <Button type="submit" loading={saving} className="mv-save-primary">

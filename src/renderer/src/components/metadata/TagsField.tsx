@@ -24,14 +24,19 @@ import type { TagSectionsExpanded } from '@shared/types'
 import { getWrongTagSuggestions, removeTagByValue } from '@shared/wrong-tags'
 import {
   addTag,
+  getArtistTitleTagOccurrences,
   getDuplicateTagOccurrences,
+  hasArtistTitleTags,
   hasDuplicateTags,
+  removeArtistTitleTags,
   removeTagAtIndex
 } from '@shared/tags'
 
 interface TagsFieldProps {
   folderPath: string
   tags: string
+  artistUnicode: string
+  artist: string
   titleUnicode: string
   title: string
   folderName: string
@@ -80,6 +85,8 @@ function CollapsibleTagSection({
 export default function TagsField({
   folderPath,
   tags,
+  artistUnicode,
+  artist,
   titleUnicode,
   title,
   folderName,
@@ -98,10 +105,14 @@ export default function TagsField({
 
   const [dismissedWrongIds, setDismissedWrongIds] = useState<string[]>([])
   const [duplicateIgnored, setDuplicateIgnored] = useState(false)
+  const [artistTitleTagsIgnored, setArtistTitleTagsIgnored] = useState(false)
+  const [duplicatesOpen, setDuplicatesOpen] = useState(false)
 
   useEffect(() => {
     void window.api.isDuplicateWarningIgnored(folderPath).then(setDuplicateIgnored)
+    void window.api.isArtistTitleTagWarningIgnored(folderPath).then(setArtistTitleTagsIgnored)
     void window.api.getDismissedWrongTagHints(folderPath).then(setDismissedWrongIds)
+    setDuplicatesOpen(false)
   }, [folderPath])
 
   useEffect(() => {
@@ -110,6 +121,16 @@ export default function TagsField({
       void window.api.setDuplicateWarningIgnored(folderPath, false)
     }
   }, [tags, duplicateIgnored, folderPath])
+
+  useEffect(() => {
+    if (
+      !hasArtistTitleTags(tags, artistUnicode, artist, titleUnicode, title, source) &&
+      artistTitleTagsIgnored
+    ) {
+      setArtistTitleTagsIgnored(false)
+      void window.api.setArtistTitleTagWarningIgnored(folderPath, false)
+    }
+  }, [tags, artistUnicode, artist, titleUnicode, title, source, artistTitleTagsIgnored, folderPath])
 
   const guestMapperTags = useMemo(
     () => getSuggestedGuestMapperTags(difficultyVersions, tags, creator),
@@ -139,6 +160,17 @@ export default function TagsField({
   const hasDuplicates = hasDuplicateTags(tags)
   const showDuplicateUi = hasDuplicates && !duplicateIgnored
 
+  useEffect(() => {
+    if (!showDuplicateUi) setDuplicatesOpen(false)
+  }, [showDuplicateUi])
+
+  const artistTitleTagOccurrences = useMemo(
+    () => getArtistTitleTagOccurrences(tags, artistUnicode, artist, titleUnicode, title, source),
+    [tags, artistUnicode, artist, titleUnicode, title, source]
+  )
+  const hasArtistTitleTagIssue = artistTitleTagOccurrences.length > 0
+  const showArtistTitleTagUi = hasArtistTitleTagIssue && !artistTitleTagsIgnored
+
   const toggleSection = (key: keyof TagSectionsExpanded): void => {
     onTagSectionsExpandedChange({
       ...tagSectionsExpanded,
@@ -149,6 +181,15 @@ export default function TagsField({
   const ignoreDuplicates = (): void => {
     setDuplicateIgnored(true)
     void window.api.setDuplicateWarningIgnored(folderPath, true)
+  }
+
+  const ignoreArtistTitleTags = (): void => {
+    setArtistTitleTagsIgnored(true)
+    void window.api.setArtistTitleTagWarningIgnored(folderPath, true)
+  }
+
+  const removeArtistTitleTagMatches = (): void => {
+    onChange(removeArtistTitleTags(tags, artistUnicode, artist, titleUnicode, title, source))
   }
 
   const dismissWrongTag = (ruleId: string): void => {
@@ -273,6 +314,25 @@ export default function TagsField({
         {wrongTagPills}
       </CollapsibleTagSection>
 
+      {showArtistTitleTagUi && (
+        <Alert icon={<IconAlertTriangle />} color="orange" variant="light" mb="xs">
+          <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
+            <Text size="sm" style={{ flex: 1 }}>
+              Tags should not repeat the artist, title, or source (
+              {artistTitleTagOccurrences.map(({ tag }) => tag).join(', ')}).
+            </Text>
+            <Group gap={6} wrap="nowrap">
+              <Button variant="subtle" color="orange" size="compact-sm" onClick={removeArtistTitleTagMatches}>
+                Remove tags
+              </Button>
+              <Button variant="subtle" color="orange" size="compact-sm" onClick={ignoreArtistTitleTags}>
+                Ignore
+              </Button>
+            </Group>
+          </Group>
+        </Alert>
+      )}
+
       <Textarea
         value={tags}
         onChange={(e) => onChange(e.currentTarget.value)}
@@ -280,44 +340,67 @@ export default function TagsField({
         autosize
       />
 
-      {showDuplicateUi && duplicateOccurrences.length > 0 && (
-        <Group gap={6} mt="xs">
-          {duplicateOccurrences.map(({ tag, index }) => (
-            <Badge
-              key={`${tag}-${index}`}
-              variant="light"
-              color="red"
-              pr={3}
-              rightSection={
-                <ActionIcon
-                  size="xs"
-                  color="red"
-                  variant="transparent"
-                  aria-label={`Remove duplicate tag ${tag}`}
-                  onClick={() => onChange(removeTagAtIndex(tags, index))}
-                >
-                  <IconX size={12} />
-                </ActionIcon>
-              }
-            >
-              {tag}
-            </Badge>
-          ))}
-        </Group>
-      )}
-
       {showDuplicateUi && (
-        <Alert icon={<IconAlertTriangle />} color="red" variant="light" mt="xs">
-          <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
-            <Text size="sm" style={{ flex: 1 }}>
-              There are duplicated tags. Click × on a duplicate to remove it, or ignore if
-              intentional.
-            </Text>
-            <Button variant="subtle" color="red" size="compact-sm" onClick={ignoreDuplicates}>
-              Ignore
-            </Button>
-          </Group>
-        </Alert>
+        <Box mt="xs">
+          <UnstyledButton
+            onClick={() => setDuplicatesOpen((open) => !open)}
+            style={{ width: '100%', textAlign: 'left' }}
+          >
+            <Alert icon={<IconAlertTriangle />} color="red" variant="light" style={{ cursor: 'pointer' }}>
+              <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
+                <Group gap={6} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
+                  {duplicatesOpen ? (
+                    <IconChevronDown size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                  ) : (
+                    <IconChevronRight size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                  )}
+                  <Text size="sm" style={{ flex: 1 }}>
+                    {duplicatesOpen
+                      ? 'Click × on a duplicate to remove it, or ignore if intentional.'
+                      : 'There are duplicated tags. Click to review and remove them.'}
+                  </Text>
+                </Group>
+                <Button
+                  variant="subtle"
+                  color="red"
+                  size="compact-sm"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    ignoreDuplicates()
+                  }}
+                >
+                  Ignore
+                </Button>
+              </Group>
+            </Alert>
+          </UnstyledButton>
+
+          <Collapse in={duplicatesOpen}>
+            <Group gap={6} mt="xs">
+              {duplicateOccurrences.map(({ tag, index }) => (
+                <Badge
+                  key={`${tag}-${index}`}
+                  variant="light"
+                  color="red"
+                  pr={3}
+                  rightSection={
+                    <ActionIcon
+                      size="xs"
+                      color="red"
+                      variant="transparent"
+                      aria-label={`Remove duplicate tag ${tag}`}
+                      onClick={() => onChange(removeTagAtIndex(tags, index))}
+                    >
+                      <IconX size={12} />
+                    </ActionIcon>
+                  }
+                >
+                  {tag}
+                </Badge>
+              ))}
+            </Group>
+          </Collapse>
+        </Box>
       )}
 
       {wrongTagSuggestions.length > 0 && (
