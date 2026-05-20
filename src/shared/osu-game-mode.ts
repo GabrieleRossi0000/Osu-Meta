@@ -25,6 +25,34 @@ export function extractOsuGameModes(beatmaps: { mode?: string }[] | undefined): 
   return OSU_GAME_MODE_ORDER.filter((mode) => seen.has(mode))
 }
 
+/** osu!stable `Mode` field in .osu files (0–3). */
+export function osuModeIntToGameMode(mode: number): OsuGameMode | null {
+  if (mode === 0) return 'osu'
+  if (mode === 1) return 'taiko'
+  if (mode === 2) return 'fruits'
+  if (mode === 3) return 'mania'
+  return null
+}
+
+export function gameModesFromModeInts(modes: number[]): OsuGameMode[] {
+  const seen = new Set<OsuGameMode>()
+  for (const mode of modes) {
+    const normalized = osuModeIntToGameMode(mode)
+    if (normalized) seen.add(normalized)
+  }
+  if (seen.size === 0) return ['osu']
+  return OSU_GAME_MODE_ORDER.filter((mode) => seen.has(mode))
+}
+
+export function gameModesFromModeNames(modes: string[]): OsuGameMode[] {
+  return extractOsuGameModes(modes.map((mode) => ({ mode })))
+}
+
+/** Combo colours exist only on osu!standard and osu!catch sets. */
+export function beatmapsetSupportsComboColours(modes: OsuGameMode[]): boolean {
+  return modes.some((mode) => mode === 'osu' || mode === 'fruits')
+}
+
 export function beatmapGameModeLabel(mode: OsuGameMode | string): string {
   switch (mode.toLowerCase()) {
     case 'osu':

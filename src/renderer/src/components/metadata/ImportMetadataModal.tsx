@@ -40,7 +40,11 @@ import {
   formatLeaderboardDateAt
 } from '@shared/osu-beatmap-status'
 import {
-  beatmapGameModeLabel
+  beatmapGameModeLabel,
+  beatmapsetSupportsComboColours,
+  gameModesFromModeInts,
+  gameModesFromModeNames,
+  type OsuGameMode
 } from '@shared/osu-game-mode'
 import GameModeIcon from '../common/GameModeIcon'
 import type {
@@ -109,6 +113,7 @@ interface ImportMetadataModalProps {
   currentFolderPath: string
   currentMetadata: BeatmapMetadata
   currentComboColours: BeatmapComboColour[]
+  currentGameModes: OsuGameMode[]
   importing: boolean
   onImport: (source: ImportMetadataSource, mode: ImportMetadataMode, includeComboColours: boolean) => void
 }
@@ -137,7 +142,11 @@ export function applyMetadataImport(
 async function loadSourceImportData(pick: ImportPick): Promise<ImportSourceData> {
   if (pick.kind === 'local') {
     const loaded = await window.api.loadMetadata(pick.beatmap.folderPath)
-    return { metadata: loaded.metadata, comboColours: loaded.comboColours }
+    return {
+      metadata: loaded.metadata,
+      comboColours: loaded.comboColours,
+      gameModes: gameModesFromModeInts(loaded.difficulties.map((d) => d.mode))
+    }
   }
   return window.api.loadImportSourceFromBeatmapSet(pick.hit.beatmapSetId)
 }
@@ -328,6 +337,7 @@ function ImportPreviewStep({
   sourceComboColours,
   importing,
   stepDirection,
+  canImportComboColours,
   onBack,
   onConfirm
 }: {
@@ -338,6 +348,7 @@ function ImportPreviewStep({
   sourceComboColours: BeatmapComboColour[]
   importing: boolean
   stepDirection: 'forward' | 'back'
+  canImportComboColours: boolean
   onBack: () => void
   onConfirm: (includeComboColours: boolean) => void
 }): JSX.Element {
@@ -345,7 +356,7 @@ function ImportPreviewStep({
 
   useEffect(() => {
     setIncludeComboColours(false)
-  }, [mode, sourceMetadata])
+  }, [mode, sourceMetadata, canImportComboColours])
 
   const previews = useMemo(
     () => buildImportPreview(currentMetadata, sourceMetadata, mode),
@@ -416,59 +427,61 @@ function ImportPreviewStep({
               </Paper>
             ))}
 
-          <Paper p="sm" radius="md" bg="dark.6">
-            <Switch
-              checked={includeComboColours}
-              onChange={(event) => setIncludeComboColours(event.currentTarget.checked)}
-              disabled={importing}
-              label={
-                <Stack gap={2}>
-                  <Text size="sm" fw={500}>
-                    Also import combo colours from source
-                  </Text>
-                  <Text size="xs" c="dimmed" lh={1.45}>
-                    {sourceHasComboColours
-                      ? 'Optional — copies the source map’s [Colours] section into your editor.'
-                      : 'The source map has no combo colours in [Colours]. Turning this on will clear combo colours in your editor.'}
-                  </Text>
-                </Stack>
-              }
-              styles={{ body: { alignItems: 'flex-start' } }}
-            />
+          {canImportComboColours ? (
+            <Paper p="sm" radius="md" bg="dark.6">
+              <Switch
+                checked={includeComboColours}
+                onChange={(event) => setIncludeComboColours(event.currentTarget.checked)}
+                disabled={importing}
+                label={
+                  <Stack gap={2}>
+                    <Text size="sm" fw={500}>
+                      Also import combo colours from source
+                    </Text>
+                    <Text size="xs" c="dimmed" lh={1.45}>
+                      {sourceHasComboColours
+                        ? 'Optional — copies the source map’s [Colours] section into your editor.'
+                        : 'The source map has no combo colours in [Colours]. Turning this on will clear combo colours in your editor.'}
+                    </Text>
+                  </Stack>
+                }
+                styles={{ body: { alignItems: 'flex-start' } }}
+              />
 
-            {includeComboColours ? (
-              <Box mt="md" className="mv-combo-reveal">
-                <Group justify="space-between" mb={6}>
-                  <Text size="xs" fw={600} tt="uppercase" c="dimmed">
-                    Combo colours ({comboPreview.current.length} → {comboPreview.next.length})
-                  </Text>
-                  {comboPreview.changed ? (
-                    <Badge size="xs" color="yellow" variant="light" className="mv-badge-will-change">
-                      Will change
-                    </Badge>
-                  ) : (
-                    <Badge size="xs" color="gray" variant="light">
-                      Unchanged
-                    </Badge>
-                  )}
-                </Group>
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-                  <Stack gap={4}>
-                    <Text size="xs" c="dimmed">
-                      Current
+              {includeComboColours ? (
+                <Box mt="md" className="mv-combo-reveal">
+                  <Group justify="space-between" mb={6}>
+                    <Text size="xs" fw={600} tt="uppercase" c="dimmed">
+                      Combo colours ({comboPreview.current.length} → {comboPreview.next.length})
                     </Text>
-                    <ComboSwatches colours={comboPreview.current} />
-                  </Stack>
-                  <Stack gap={4}>
-                    <Text size="xs" c="dimmed">
-                      After import
-                    </Text>
-                    <ComboSwatches colours={comboPreview.next} />
-                  </Stack>
-                </SimpleGrid>
-              </Box>
-            ) : null}
-          </Paper>
+                    {comboPreview.changed ? (
+                      <Badge size="xs" color="yellow" variant="light" className="mv-badge-will-change">
+                        Will change
+                      </Badge>
+                    ) : (
+                      <Badge size="xs" color="gray" variant="light">
+                        Unchanged
+                      </Badge>
+                    )}
+                  </Group>
+                  <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                    <Stack gap={4}>
+                      <Text size="xs" c="dimmed">
+                        Current
+                      </Text>
+                      <ComboSwatches colours={comboPreview.current} />
+                    </Stack>
+                    <Stack gap={4}>
+                      <Text size="xs" c="dimmed">
+                        After import
+                      </Text>
+                      <ComboSwatches colours={comboPreview.next} />
+                    </Stack>
+                  </SimpleGrid>
+                </Box>
+              ) : null}
+            </Paper>
+          ) : null}
         </Stack>
       </ScrollArea.Autosize>
 
@@ -477,7 +490,7 @@ function ImportPreviewStep({
           Back
         </Button>
         <Button
-          onClick={() => onConfirm(includeComboColours)}
+          onClick={() => onConfirm(canImportComboColours ? includeComboColours : false)}
           loading={importing}
           disabled={!hasChanges}
         >
@@ -594,6 +607,7 @@ export default function ImportMetadataModal({
   currentFolderPath,
   currentMetadata,
   currentComboColours,
+  currentGameModes,
   importing,
   onImport
 }: ImportMetadataModalProps): JSX.Element {
@@ -602,6 +616,7 @@ export default function ImportMetadataModal({
   const [selectedMode, setSelectedMode] = useState<ImportMetadataMode | null>(null)
   const [sourceMetadata, setSourceMetadata] = useState<BeatmapMetadata | null>(null)
   const [sourceComboColours, setSourceComboColours] = useState<BeatmapComboColour[]>([])
+  const [sourceGameModes, setSourceGameModes] = useState<OsuGameMode[]>([])
   const [sourceLoading, setSourceLoading] = useState(false)
   const [sourceLoadError, setSourceLoadError] = useState<string | null>(null)
   const [webResults, setWebResults] = useState<OsuBeatmapsetSearchHit[]>([])
@@ -627,6 +642,7 @@ export default function ImportMetadataModal({
     setSelectedMode(null)
     setSourceMetadata(null)
     setSourceComboColours([])
+    setSourceGameModes([])
     setSourceLoading(false)
     setSourceLoadError(null)
     setWebResults([])
@@ -660,17 +676,26 @@ export default function ImportMetadataModal({
     setSelectedMode(null)
     setSourceMetadata(null)
     setSourceComboColours([])
+    setSourceGameModes([])
     setSourceLoading(false)
     setSourceLoadError(null)
     setWebResults([])
     onClose()
   }
 
+  const currentSupportsComboColours = beatmapsetSupportsComboColours(currentGameModes)
+  const sourceSupportsComboColours = beatmapsetSupportsComboColours(sourceGameModes)
+  const canImportComboColours =
+    currentSupportsComboColours && sourceSupportsComboColours
+
   const loadPreviewMetadata = (pick: ImportPick, mode: ImportMetadataMode): void => {
     setStepDirection('forward')
     setSelectedMode(mode)
     setSourceMetadata(null)
     setSourceComboColours([])
+    setSourceGameModes(
+      pick.kind === 'web' ? gameModesFromModeNames(pick.hit.gameModes) : []
+    )
     setSourceLoadError(null)
     setSourceLoading(true)
 
@@ -678,10 +703,16 @@ export default function ImportMetadataModal({
       .then((source) => {
         setSourceMetadata(source.metadata)
         setSourceComboColours(source.comboColours)
+        setSourceGameModes(
+          pick.kind === 'web'
+            ? gameModesFromModeNames(pick.hit.gameModes)
+            : gameModesFromModeNames(source.gameModes)
+        )
       })
       .catch((err) => {
         setSourceMetadata(null)
         setSourceComboColours([])
+        setSourceGameModes([])
         setSourceLoadError(
           err instanceof Error ? err.message : 'Failed to load source metadata.'
         )
@@ -773,11 +804,13 @@ export default function ImportMetadataModal({
           sourceComboColours={sourceComboColours}
           importing={importing}
           stepDirection={stepDirection}
+          canImportComboColours={canImportComboColours}
           onBack={() => {
             setStepDirection('back')
             setSelectedMode(null)
             setSourceMetadata(null)
             setSourceComboColours([])
+            setSourceGameModes([])
             setSourceLoadError(null)
           }}
           onConfirm={handleConfirmImport}
@@ -789,6 +822,7 @@ export default function ImportMetadataModal({
           stepDirection={stepDirection}
           onBack={() => {
             setStepDirection('back')
+            setSourceGameModes([])
             setPicked(null)
           }}
           onSelectMode={handleSelectMode}
@@ -832,6 +866,7 @@ export default function ImportMetadataModal({
                     isHighlighted={false}
                     onSelectFolder={() => {
                       setStepDirection('forward')
+                      setSourceGameModes([])
                       setPicked({ kind: 'local', beatmap: bm })
                     }}
                   />
@@ -865,6 +900,7 @@ export default function ImportMetadataModal({
                       hit={hit}
                       onSelect={() => {
                         setStepDirection('forward')
+                        setSourceGameModes(gameModesFromModeNames(hit.gameModes))
                         setPicked({ kind: 'web', hit })
                       }}
                     />

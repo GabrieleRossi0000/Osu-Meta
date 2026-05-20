@@ -24,6 +24,10 @@ import {
   fetchBeatmapsetFromWebPage,
   webBeatmapsetToMetadata
 } from './osu-beatmapset-web'
+import {
+  beatmapsetSupportsComboColours,
+  gameModesFromModeInts
+} from '../shared/osu-game-mode'
 import { resolveBeatmapSetId } from '../shared/beatmap-set-id'
 import { basename } from 'path'
 import { readDifficultySummaryFromText } from './osu-difficulty'
@@ -140,17 +144,20 @@ export async function loadImportSourceFromBeatmapSetId(
   const metadata = await loadMetadataFromBeatmapSetIdInternal(beatmapSetId)
   const beatmapId = await fetchFirstBeatmapIdFromSet(beatmapSetId)
   if (beatmapId == null) {
-    return { metadata, comboColours: [] }
+    return { metadata, comboColours: [], gameModes: [] }
   }
 
   const osuText = await downloadBeatmapOsuText(beatmapId)
   if (!osuText) {
-    return { metadata, comboColours: [] }
+    return { metadata, comboColours: [], gameModes: [] }
   }
+
+  const sourceDiff = readDifficultySummaryFromText(osuText, 'import.osu')
 
   return {
     metadata,
-    comboColours: readComboColoursFromContent(osuText)
+    comboColours: readComboColoursFromContent(osuText),
+    gameModes: gameModesFromModeInts([sourceDiff.mode])
   }
 }
 
@@ -168,8 +175,13 @@ export function saveSetMetadata(
   const normalized = applyRomanizedFieldLocks(save.metadata, locks)
   const dirtyFields = getDirtyMetadataFields(normalized, save.savedMetadata)
   const comboDirty = !comboColoursEqual(save.comboColours, save.savedComboColours)
+  const setGameModes = gameModesFromModeInts(
+    osuFiles.map((filePath) => readDifficultySummaryFromText(readOsuFileText(filePath), filePath).mode)
+  )
+  const supportsComboColours = beatmapsetSupportsComboColours(setGameModes)
+  const writeComboColours = comboDirty && supportsComboColours
 
-  if (dirtyFields.length === 0 && !comboDirty) {
+  if (dirtyFields.length === 0 && !writeComboColours) {
     return { updatedFiles: 0, updatedMetadataFields: [], updatedComboColours: false }
   }
 
@@ -177,7 +189,7 @@ export function saveSetMetadata(
     if (dirtyFields.length > 0) {
       updateMetadataFieldsInFile(filePath, normalized, dirtyFields)
     }
-    if (comboDirty) {
+    if (writeComboColours) {
       updateComboColoursInFile(filePath, save.comboColours)
     }
   }
@@ -185,6 +197,6 @@ export function saveSetMetadata(
   return {
     updatedFiles: osuFiles.length,
     updatedMetadataFields: dirtyFields,
-    updatedComboColours: comboDirty
+    updatedComboColours: writeComboColours
   }
 }

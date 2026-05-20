@@ -177,4 +177,6 @@ export type ImportMetadataMode = 'full' | 'tags' | 'song'
 export interface ImportSourceData {
   metadata: BeatmapMetadata
   comboColours: BeatmapComboColour[]
+  /** Modes present in the source set (osu, taiko, fruits, mania). */
+  gameModes: string[]
 }

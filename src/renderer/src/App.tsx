@@ -25,8 +25,12 @@ import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
 import { matchBeatmapByDisplayTitle } from '@shared/match-display-name'
 import { comboColoursEqual } from '@shared/combo-colours'
 import {
-  editorStateEquals,
+  beatmapsetSupportsComboColours,
+  gameModesFromModeInts
+} from '@shared/osu-game-mode'
+import {
   getDirtyMetadataFields,
+  metadataEquals,
   normalizeBeatmapMetadata
 } from '@shared/metadata-utils'
 import { applyRomanizedFieldLocks, getRomanizedFieldLocks } from '@shared/romanization'
@@ -224,13 +228,24 @@ function MainScreen({
     [beatmaps, debouncedListSearch]
   )
 
-  const isDirty = useMemo(
-    () =>
-      savedMetadata !== null &&
-      savedComboColours !== null &&
-      !editorStateEquals(metadata, savedMetadata, comboColours, savedComboColours),
-    [metadata, savedMetadata, comboColours, savedComboColours]
+  const currentGameModes = useMemo(
+    () => gameModesFromModeInts(difficulties.map((d) => d.mode)),
+    [difficulties]
   )
+
+  const supportsComboColours = useMemo(
+    () => beatmapsetSupportsComboColours(currentGameModes),
+    [currentGameModes]
+  )
+
+  const isDirty = useMemo(() => {
+    if (savedMetadata === null || savedComboColours === null) return false
+    const metadataDirty = !metadataEquals(metadata, savedMetadata)
+    const comboDirty =
+      supportsComboColours &&
+      !comboColoursEqual(comboColours, savedComboColours)
+    return metadataDirty || comboDirty
+  }, [metadata, savedMetadata, comboColours, savedComboColours, supportsComboColours])
 
   const dirtyFolderPath = isDirty ? (selected?.folderPath ?? null) : null
 
@@ -241,8 +256,10 @@ function MainScreen({
 
   const comboColoursDirty = useMemo(
     () =>
-      savedComboColours !== null && !comboColoursEqual(comboColours, savedComboColours),
-    [comboColours, savedComboColours]
+      supportsComboColours &&
+      savedComboColours !== null &&
+      !comboColoursEqual(comboColours, savedComboColours),
+    [supportsComboColours, comboColours, savedComboColours]
   )
 
   const needsMismatchConfirm = useMemo(() => {
@@ -599,18 +616,19 @@ function MainScreen({
     ): Promise<void> => {
       setImportingMetadata(true)
       try {
+        const applyCombo = includeComboColours && supportsComboColours
         if (source.kind === 'local') {
           const loaded = await window.api.loadMetadata(source.folderPath)
           setMetadata((current) => applyMetadataImport(current, loaded.metadata, mode))
           setImportedWebBeatmapSetId(null)
-          if (includeComboColours) {
+          if (applyCombo) {
             setComboColours(loaded.comboColours)
           }
         } else {
           const imported = await window.api.loadImportSourceFromBeatmapSet(source.beatmapSetId)
           setMetadata((current) => applyMetadataImport(current, imported.metadata, mode))
           setImportedWebBeatmapSetId(source.beatmapSetId)
-          if (includeComboColours) {
+          if (applyCombo) {
             setComboColours(imported.comboColours)
           }
         }
@@ -619,7 +637,7 @@ function MainScreen({
         if (mode === 'full') parts.push('full metadata')
         else if (mode === 'tags') parts.push('tags')
         else parts.push('song metadata')
-        if (includeComboColours) parts.push('combo colours')
+        if (applyCombo) parts.push('combo colours')
         const message =
           parts.length > 0 ? `Imported ${parts.join(' and ')}.` : 'Nothing to import.'
         setStatus(message)
@@ -632,7 +650,7 @@ function MainScreen({
         setImportingMetadata(false)
       }
     },
-    []
+    [supportsComboColours]
   )
 
   const discardUnsavedAndContinue = (): void => {
@@ -776,6 +794,7 @@ function MainScreen({
           currentFolderPath={selected.folderPath}
           currentMetadata={metadata}
           currentComboColours={comboColours}
+          currentGameModes={currentGameModes}
           importing={importingMetadata}
           onImport={(source, mode, includeComboColours) =>
             void handleImportMetadata(source, mode, includeComboColours)

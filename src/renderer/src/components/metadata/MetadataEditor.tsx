@@ -34,6 +34,7 @@ import type {
   BeatmapSetSummary,
   TagSectionsExpanded
 } from '@shared/types'
+import { beatmapsetSupportsComboColours, gameModesFromModeInts } from '@shared/osu-game-mode'
 import { parseDisplayName } from '../../utils/parseDisplayName'
 import DifficultyList from './DifficultyList'
 import TagsField from './TagsField'
@@ -118,13 +119,18 @@ export default function MetadataEditor({
   const displaySource = metadata.source.trim()
   const beatmapSetId = resolveBeatmapSetId(selected)
   const hasBg = Boolean(selected.backgroundImageUrl)
+  const supportsComboColours = useMemo(
+    () => beatmapsetSupportsComboColours(gameModesFromModeInts(difficulties.map((d) => d.mode))),
+    [difficulties]
+  )
+
   const validationIssues = useMemo(
     () =>
       getMetadataValidationIssues(metadata, {
         mismatched,
-        comboColoursMismatched
+        comboColoursMismatched: supportsComboColours ? comboColoursMismatched : false
       }),
-    [metadata, mismatched, comboColoursMismatched]
+    [metadata, mismatched, comboColoursMismatched, supportsComboColours]
   )
 
   const update = (key: keyof BeatmapMetadata, value: string): void => {
@@ -458,35 +464,37 @@ export default function MetadataEditor({
             onChange={(tags) => update('tags', tags)}
           />
 
-          <Box mt="md">
-            <UnstyledButton
-              className={`mv-chevron-btn${comboOpen ? ' mv-chevron-btn--open' : ''}`}
-              onClick={() => setComboOpen((value) => !value)}
-              style={{
-                width: '100%',
-                borderRadius: 8,
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                background: 'rgba(255, 255, 255, 0.02)',
-                padding: '10px 12px'
-              }}
-            >
-              <Group justify="space-between" wrap="nowrap">
-                <Group gap={8} wrap="nowrap">
-                  <IconChevronRight size={16} stroke={2.75} className="mv-chevron-icon" />
-                  <Text fw={600} size="sm">
-                    Combo colours
-                  </Text>
+          {supportsComboColours ? (
+            <Box mt="md">
+              <UnstyledButton
+                className={`mv-chevron-btn${comboOpen ? ' mv-chevron-btn--open' : ''}`}
+                onClick={() => setComboOpen((value) => !value)}
+                style={{
+                  width: '100%',
+                  borderRadius: 8,
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  padding: '10px 12px'
+                }}
+              >
+                <Group justify="space-between" wrap="nowrap">
+                  <Group gap={8} wrap="nowrap">
+                    <IconChevronRight size={16} stroke={2.75} className="mv-chevron-icon" />
+                    <Text fw={600} size="sm">
+                      Combo colours
+                    </Text>
+                  </Group>
+                  <Badge variant="light" color="blue">
+                    {comboColours.length}
+                  </Badge>
                 </Group>
-                <Badge variant="light" color="blue">
-                  {comboColours.length}
-                </Badge>
-              </Group>
-            </UnstyledButton>
+              </UnstyledButton>
 
-            <Collapse in={comboOpen} transitionDuration={220} mt="sm">
-              <ComboColoursEditor colours={comboColours} onChange={onComboColoursChange} />
-            </Collapse>
-          </Box>
+              <Collapse in={comboOpen} transitionDuration={220} mt="sm">
+                <ComboColoursEditor colours={comboColours} onChange={onComboColoursChange} />
+              </Collapse>
+            </Box>
+          ) : null}
 
           <Group gap="sm" align="center">
             <Button
