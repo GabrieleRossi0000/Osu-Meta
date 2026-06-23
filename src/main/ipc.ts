@@ -14,6 +14,9 @@ import { openBeatmapFolder } from './open-beatmap'
 import { checkBeatmapSetOnline } from './beatmap-set-online'
 import { openBeatmapPage } from './open-beatmap-page'
 import { checkForUpdatesNow, resolveUpdaterDialog } from './updater'
+import { suggestGuestMapperApiTags } from './guest-mapper-tag-service'
+import { suggestHostAlternateNameTags } from './host-mapper-tag-service'
+import { suggestRankedGenreLanguage } from './ranked-genre-language-service'
 import type { UpdaterDialogAction } from '../shared/updater-dialog'
 import { getCandidateSongsPaths, getFirstExistingSongsPath } from './osu-paths'
 import {
@@ -21,9 +24,7 @@ import {
   getDismissedWrongTagHints,
   getSettings,
   isArtistTitleTagWarningIgnored,
-  isDuplicateWarningIgnored,
   setArtistTitleTagWarningIgnored,
-  setDuplicateWarningIgnored,
   setSongsPath,
   setSidebarWidth,
   setTagSectionsExpanded
@@ -33,6 +34,7 @@ import type {
   BeatmapMetadata,
   BeatmapSetSummary,
   SaveMetadataPayload,
+  SuggestRankedGenreLanguageRequest,
   SuggestRankedSourceRequest,
   TagSectionsExpanded
 } from '../shared/types'
@@ -130,6 +132,22 @@ export function registerIpcHandlers(): void {
     resolveUpdaterDialog(action)
   })
 
+  ipcMain.handle('suggest-guest-mapper-api-tags', async (_event, beatmapSetId: number) => {
+    try {
+      return await suggestGuestMapperApiTags(Math.trunc(Number(beatmapSetId)))
+    } catch {
+      return []
+    }
+  })
+
+  ipcMain.handle('suggest-host-alternate-name-tags', async (_event, beatmapSetId: number) => {
+    try {
+      return await suggestHostAlternateNameTags(Math.trunc(Number(beatmapSetId)))
+    } catch {
+      return []
+    }
+  })
+
   ipcMain.handle('lookup-current-beatmap', (_event, beatmaps?: BeatmapSetSummary[]) => {
     const { songsPath } = getSettings()
     if (!songsPath) {
@@ -160,20 +178,14 @@ export function registerIpcHandlers(): void {
     suggestRankedSource(request, request.beatmapSetId, { refresh: request.refresh })
   )
 
+  ipcMain.handle(
+    'suggest-ranked-genre-language',
+    (_event, request: SuggestRankedGenreLanguageRequest) => suggestRankedGenreLanguage(request)
+  )
+
   ipcMain.handle('is-osu-api-configured', () => isOsuApiConfigured())
 
   ipcMain.handle('is-osu-running', () => isOsuProcessRunning())
-
-  ipcMain.handle('is-duplicate-warning-ignored', (_event, folderPath: string) => {
-    return isDuplicateWarningIgnored(folderPath)
-  })
-
-  ipcMain.handle(
-    'set-duplicate-warning-ignored',
-    (_event, folderPath: string, ignored: boolean) => {
-      setDuplicateWarningIgnored(folderPath, ignored)
-    }
-  )
 
   ipcMain.handle('is-artist-title-tag-warning-ignored', (_event, folderPath: string) => {
     return isArtistTitleTagWarningIgnored(folderPath)

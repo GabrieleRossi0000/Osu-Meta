@@ -20,6 +20,7 @@ import { IconAlertTriangle } from '@tabler/icons-react'
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks'
 import { Notifications } from '@mantine/notifications'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { getFeaturedArtistContext } from '@shared/featured-artist'
 import { filterBeatmaps } from '@shared/filter-beatmaps'
 import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
 import { matchBeatmapByDisplayTitle } from '@shared/match-display-name'
@@ -43,6 +44,8 @@ import type {
   DetectedPath,
   ImportMetadataMode,
   ImportMetadataSource,
+  ComboColourMismatchGroup,
+  MetadataFieldMismatchDetail,
   TagSectionsExpanded
 } from '@shared/types'
 import BeatmapsSidebar from './components/beatmaps/BeatmapsSidebar'
@@ -188,16 +191,20 @@ function MainScreen({
   const [comboColours, setComboColours] = useState<BeatmapComboColour[]>([])
   const [savedComboColours, setSavedComboColours] = useState<BeatmapComboColour[] | null>(null)
   const [difficulties, setDifficulties] = useState<BeatmapDifficultySummary[]>([])
-  const [difficultyVersions, setDifficultyVersions] = useState<string[]>([])
   const [creator, setCreator] = useState('')
   const [isFeaturedArtist, setIsFeaturedArtist] = useState(false)
+  const [featuredArtistContext, setFeaturedArtistContext] = useState(false)
   const [isOnOsuWebsite, setIsOnOsuWebsite] = useState(false)
   const [mismatched, setMismatched] = useState(false)
   const [mismatchedFields, setMismatchedFields] = useState<(keyof BeatmapMetadata)[]>([])
+  const [metadataMismatchDetails, setMetadataMismatchDetails] = useState<MetadataFieldMismatchDetail[]>([])
   const [comboColoursMismatched, setComboColoursMismatched] = useState(false)
+  const [comboColourMismatchDetails, setComboColourMismatchDetails] = useState<ComboColourMismatchGroup[]>([])
   const [tagSectionsExpanded, setTagSectionsExpanded] = useState<TagSectionsExpanded>({
     featured: true,
     source: true,
+    language: true,
+    genre: true,
     guest: true,
     guild: true,
     collab: true,
@@ -318,13 +325,17 @@ function MainScreen({
       setComboColours(loaded.comboColours)
       setSavedComboColours(loaded.comboColours)
       setDifficulties(loaded.difficulties)
-      setDifficultyVersions(loaded.difficultyVersions)
       setCreator(loaded.creator)
       setIsFeaturedArtist(loaded.isFeaturedArtist)
+      setFeaturedArtistContext(
+        getFeaturedArtistContext(loaded.isFeaturedArtist, loaded.metadata.tags)
+      )
       setIsOnOsuWebsite(loaded.isOnOsuWebsite)
       setMismatched(loaded.mismatched)
       setMismatchedFields(loaded.mismatchedFields)
+      setMetadataMismatchDetails(loaded.metadataMismatchDetails)
       setComboColoursMismatched(loaded.comboColoursMismatched)
+      setComboColourMismatchDetails(loaded.comboColourMismatchDetails)
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed to load metadata.')
     } finally {
@@ -383,7 +394,13 @@ function MainScreen({
       setSavedComboColours(loaded.comboColours)
       setMismatched(loaded.mismatched)
       setMismatchedFields(loaded.mismatchedFields)
+      setMetadataMismatchDetails(loaded.metadataMismatchDetails)
       setComboColoursMismatched(loaded.comboColoursMismatched)
+      setComboColourMismatchDetails(loaded.comboColourMismatchDetails)
+      setIsFeaturedArtist(loaded.isFeaturedArtist)
+      setFeaturedArtistContext(
+        getFeaturedArtistContext(loaded.isFeaturedArtist, loaded.metadata.tags)
+      )
 
       const sets = await loadBeatmaps()
       const refreshed = sets.find((b) => b.folderPath === folderPath)
@@ -757,11 +774,13 @@ function MainScreen({
                   selected={selected}
                   metadata={metadata}
                   difficulties={difficulties}
-                  difficultyVersions={difficultyVersions}
                   creator={creator}
                   isFeaturedArtist={isFeaturedArtist}
+                  featuredArtistContext={featuredArtistContext}
                   isOnOsuWebsite={isOnOsuWebsite}
                   mismatched={mismatched}
+                  metadataMismatchDetails={metadataMismatchDetails}
+                  comboColourMismatchDetails={comboColourMismatchDetails}
                   comboColours={comboColours}
                   comboColoursMismatched={comboColoursMismatched}
                   isDirty={isDirty}

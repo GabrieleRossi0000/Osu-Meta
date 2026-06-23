@@ -945,9 +945,6 @@ export default function ImportMetadataModal({
                   <Text size="xs" fw={600} c="dimmed" tt="uppercase">
                     osu! website
                   </Text>
-                  <Text size="xs" c="dimmed">
-                    Sorted by match, then ranked/loved/qualified date.
-                  </Text>
                 </Stack>
                 {webLoading ? <Loader size={16} /> : null}
               </Group>

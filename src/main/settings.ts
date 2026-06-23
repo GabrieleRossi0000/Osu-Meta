@@ -4,17 +4,22 @@ import type { AppSettings, RankedSourceSuggestionResult, ScanCache, TagSectionsE
 const DEFAULT_TAG_SECTIONS: TagSectionsExpanded = {
   featured: true,
   source: true,
+  language: true,
+  genre: true,
   guest: true,
   guild: true,
   collab: true,
   wrongTags: true
 }
 
+function normalizeTagSectionsExpanded(value: Partial<TagSectionsExpanded> | undefined): TagSectionsExpanded {
+  return { ...DEFAULT_TAG_SECTIONS, ...value }
+}
+
 const store = new Store<AppSettings>({
   name: 'osu-meta-settings',
   defaults: {
     songsPath: null,
-    ignoredDuplicateFolders: [],
     ignoredArtistTitleTagFolders: [],
     tagSectionsExpanded: DEFAULT_TAG_SECTIONS,
     dismissedWrongTagHints: {},
@@ -29,9 +34,8 @@ const store = new Store<AppSettings>({
 export function getSettings(): AppSettings {
   return {
     songsPath: store.get('songsPath'),
-    ignoredDuplicateFolders: store.get('ignoredDuplicateFolders') ?? [],
     ignoredArtistTitleTagFolders: store.get('ignoredArtistTitleTagFolders') ?? [],
-    tagSectionsExpanded: store.get('tagSectionsExpanded') ?? DEFAULT_TAG_SECTIONS,
+    tagSectionsExpanded: normalizeTagSectionsExpanded(store.get('tagSectionsExpanded')),
     dismissedWrongTagHints: store.get('dismissedWrongTagHints') ?? {},
     scanCache: store.get('scanCache') ?? null,
     sidebarWidth: store.get('sidebarWidth') ?? 256,
@@ -51,26 +55,6 @@ export function clearSongsPath(): void {
   store.set('scanCache', null)
 }
 
-export function setIgnoredDuplicateFolders(folderPaths: string[]): void {
-  store.set('ignoredDuplicateFolders', folderPaths)
-}
-
-export function isDuplicateWarningIgnored(folderPath: string): boolean {
-  const list = store.get('ignoredDuplicateFolders') ?? []
-  return list.some((entry) => entry.toLowerCase() === folderPath.toLowerCase())
-}
-
-export function setDuplicateWarningIgnored(folderPath: string, ignored: boolean): void {
-  const list = store.get('ignoredDuplicateFolders') ?? []
-  const key = folderPath.toLowerCase()
-  const next = ignored
-    ? list.some((entry) => entry.toLowerCase() === key)
-      ? list
-      : [...list, folderPath]
-    : list.filter((entry) => entry.toLowerCase() !== key)
-  store.set('ignoredDuplicateFolders', next)
-}
-
 export function isArtistTitleTagWarningIgnored(folderPath: string): boolean {
   const list = store.get('ignoredArtistTitleTagFolders') ?? []
   return list.some((entry) => entry.toLowerCase() === folderPath.toLowerCase())
@@ -88,7 +72,7 @@ export function setArtistTitleTagWarningIgnored(folderPath: string, ignored: boo
 }
 
 export function getTagSectionsExpanded(): TagSectionsExpanded {
-  return store.get('tagSectionsExpanded') ?? DEFAULT_TAG_SECTIONS
+  return normalizeTagSectionsExpanded(store.get('tagSectionsExpanded'))
 }
 
 export function setTagSectionsExpanded(value: TagSectionsExpanded): void {

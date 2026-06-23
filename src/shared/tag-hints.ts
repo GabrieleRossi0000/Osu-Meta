@@ -89,3 +89,8 @@ export function getTagHintSuggestions(tags: string, ctx: TagHintContext): TagHin
 export function getSuggestedPatternTags(tags: string, ctx: TagHintContext): string[] {
   return getTagHintSuggestions(tags, ctx).map((entry) => entry.tag)
 }
+
+export function hasMatchableTagHints(ctx: TagHintContext): boolean {
+  const text = buildSearchText(ctx)
+  return TAG_HINT_RULES.some((rule) => rule.test(text))
+}

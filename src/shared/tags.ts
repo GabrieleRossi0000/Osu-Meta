@@ -83,33 +83,6 @@ export function addTags(tags: string, toAdd: string[]): string {
   return applyOrderedMetaTags(toAdd.reduce((current, tag) => addTag(current, tag), tags))
 }
 
-export interface DuplicateTagOccurrence {
-  tag: string
-  index: number
-}
-
-export function getDuplicateTagOccurrences(tags: string): DuplicateTagOccurrence[] {
-  const list = parseTagList(tags)
-  const seen = new Map<string, number>()
-  const duplicates: DuplicateTagOccurrence[] = []
-
-  for (let index = 0; index < list.length; index++) {
-    const tag = list[index]
-    const key = tag.toLowerCase()
-    const count = seen.get(key) ?? 0
-    seen.set(key, count + 1)
-    if (count >= 1) {
-      duplicates.push({ tag, index })
-    }
-  }
-
-  return duplicates
-}
-
-export function hasDuplicateTags(tags: string): boolean {
-  return getDuplicateTagOccurrences(tags).length > 0
-}
-
 export function removeTagAtIndex(tags: string, index: number): string {
   const list = parseTagList(tags)
   if (index < 0 || index >= list.length) return tags

@@ -4,6 +4,7 @@ import type { BeatmapComboColour, BeatmapMetadata } from '../shared/types'
 import { formatOsuComboLine, parseOsuRgbValue } from '../shared/combo-colours'
 
 const METADATA_SECTION = '[Metadata]'
+const GENERAL_SECTION = '[General]'
 const EDITABLE_KEYS: (keyof BeatmapMetadata)[] = [
   'artist',
   'artistUnicode',
@@ -62,7 +63,15 @@ function joinLines(lines: string[], eol: string): string {
   return lines.join(eol)
 }
 
-function parseMetadataSection(lines: string[], startIndex: number): Record<string, string> {
+function findMetadataSectionStart(lines: string[]): number {
+  return lines.findIndex((line) => line.trim() === METADATA_SECTION)
+}
+
+function findGeneralSectionStart(lines: string[]): number {
+  return lines.findIndex((line) => line.trim() === GENERAL_SECTION)
+}
+
+function parseSection(lines: string[], startIndex: number): Record<string, string> {
   const values: Record<string, string> = {}
 
   for (let i = startIndex + 1; i < lines.length; i++) {
@@ -80,8 +89,8 @@ function parseMetadataSection(lines: string[], startIndex: number): Record<strin
   return values
 }
 
-function findMetadataSectionStart(lines: string[]): number {
-  return lines.findIndex((line) => line.trim() === METADATA_SECTION)
+function parseMetadataSection(lines: string[], startIndex: number): Record<string, string> {
+  return parseSection(lines, startIndex)
 }
 
 export function readMetadataFromContent(text: string): BeatmapMetadata {
@@ -112,6 +121,23 @@ export function readMetadataFieldFromContent(text: string, field: string): strin
 
 export function readVersionFromContent(text: string): string {
   return readMetadataFieldFromContent(text, 'Version')
+}
+
+export function readGeneralFieldFromContent(text: string, field: string): string {
+  const lines = splitLines(text)
+  const sectionStart = findGeneralSectionStart(lines)
+  if (sectionStart === -1) return ''
+
+  const raw = parseSection(lines, sectionStart)
+  return raw[field] ?? ''
+}
+
+export function readGenreFromContent(text: string): string {
+  return readGeneralFieldFromContent(text, 'Genre')
+}
+
+export function readLanguageFromContent(text: string): string {
+  return readGeneralFieldFromContent(text, 'Language')
 }
 
 export function readBeatmapSetIdFromContent(text: string): number {

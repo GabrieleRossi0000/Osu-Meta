@@ -91,6 +91,29 @@ export function getMismatchedMetadataFields(metadatas: BeatmapMetadata[]): Metad
   )
 }
 
+/** Prefer non-empty fields across difficulties — avoids blank tags when the first .osu file is empty. */
+export function pickRepresentativeMetadata(metadatas: BeatmapMetadata[]): BeatmapMetadata {
+  if (metadatas.length === 0) return normalizeBeatmapMetadata(null)
+
+  const representative = { ...metadatas[0] }
+
+  for (const key of METADATA_EDITABLE_KEYS) {
+    if (key === 'tags') continue
+    if (representative[key].trim()) continue
+    const fallback = metadatas.find((meta) => meta[key].trim())
+    if (fallback) representative[key] = fallback[key]
+  }
+
+  const bestTags = metadatas
+    .map((meta) => meta.tags)
+    .filter((tags) => tags.trim().length > 0)
+    .sort((a, b) => b.trim().length - a.trim().length)[0]
+
+  if (bestTags) representative.tags = bestTags
+
+  return representative
+}
+
 export function metadataFieldLabel(key: MetadataEditableKey): string {
   switch (key) {
     case 'artistUnicode':

@@ -73,8 +73,24 @@ async function getAccessToken(): Promise<string | null> {
   return tokenCache.accessToken
 }
 
+interface ApiBeatmapOwner {
+  id?: number
+  username?: string
+}
+
+interface ApiBeatmapExtended {
+  id?: number
+  mode?: string
+  user_id?: number
+  version?: string
+  owners?: ApiBeatmapOwner[]
+  genre?: { id?: number; name?: string }
+  language?: { id?: number; name?: string }
+}
+
 interface ApiBeatmapset {
   id: number
+  user_id?: number
   artist: string
   artist_unicode: string
   title: string
@@ -86,7 +102,15 @@ interface ApiBeatmapset {
   ranked_date?: string
   last_updated?: string
   tags?: string
-  beatmaps?: { id?: number; mode?: string }[]
+  genre?: { id?: number; name?: string }
+  language?: { id?: number; name?: string }
+  beatmaps?: ApiBeatmapExtended[]
+}
+
+export interface BeatmapsetApiDetails extends SourceMatchCandidate {
+  tags: string
+  genre: string
+  language: string
 }
 
 function parseLeaderboardDateMs(set: ApiBeatmapset): number {
@@ -241,7 +265,7 @@ export async function fetchFirstBeatmapIdFromSet(beatmapSetId: number): Promise<
 
 export async function fetchBeatmapsetFromApi(
   beatmapSetId: number
-): Promise<(SourceMatchCandidate & { tags: string }) | null> {
+): Promise<BeatmapsetApiDetails | null> {
   const accessToken = await getAccessToken()
   if (!accessToken || beatmapSetId <= 0) return null
 
@@ -257,5 +281,190 @@ export async function fetchBeatmapsetFromApi(
 
   const set = (await response.json()) as ApiBeatmapset
   if (typeof set.id !== 'number') return null
-  return { ...toCandidate(set), tags: set.tags ?? '' }
+  return {
+    ...toCandidate(set),
+    tags: set.tags ?? '',
+    genre: set.genre?.name?.trim() ?? '',
+    language: set.language?.name?.trim() ?? ''
+  }
+}
+
+export interface BeatmapsetExtendedInfo {
+  userId: number
+  beatmaps: Array<{
+    userId: number
+    owners: Array<{ id: number; username: string }>
+  }>
+}
+
+export interface OsuUserProfile {
+  id: number
+  username: string
+  previousUsernames: string[]
+}
+
+export interface UserBeatmapsetTagContext {
+  beatmapSetId: number
+  tags: string
+}
+
+const API_CACHE_TTL_MS = 15 * 60 * 1000
+
+interface CacheEntry<T> {
+  expiresAt: number
+  value: T
+}
+
+const profileCache = new Map<number, CacheEntry<OsuUserProfile | null>>()
+const userBeatmapsetContextCache = new Map<string, CacheEntry<UserBeatmapsetTagContext | null>>()
+
+function readCache<T>(cache: Map<number | string, CacheEntry<T>>, key: number | string): T | undefined {
+  const entry = cache.get(key)
+  if (!entry) return undefined
+  if (entry.expiresAt <= Date.now()) {
+    cache.delete(key)
+    return undefined
+  }
+  return entry.value
+}
+
+function writeCache<T>(cache: Map<number | string, CacheEntry<T>>, key: number | string, value: T): void {
+  cache.set(key, { expiresAt: Date.now() + API_CACHE_TTL_MS, value })
+}
+
+function sortBeatmapsetsByRankedDate(sets: ApiBeatmapset[]): ApiBeatmapset[] {
+  return [...sets].sort((a, b) => parseLeaderboardDateMs(b) - parseLeaderboardDateMs(a))
+}
+
+export async function fetchBeatmapsetExtended(
+  beatmapSetId: number
+): Promise<BeatmapsetExtendedInfo | null> {
+  const accessToken = await getAccessToken()
+  if (!accessToken || beatmapSetId <= 0) return null
+
+  const response = await fetch(`${API_BASE}/beatmapsets/${beatmapSetId}`, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      'User-Agent': USER_AGENT
+    }
+  })
+
+  if (!response.ok) return null
+
+  const set = (await response.json()) as ApiBeatmapset
+  if (typeof set.id !== 'number' || typeof set.user_id !== 'number') return null
+
+  const beatmaps = (set.beatmaps ?? [])
+    .map((beatmap) => {
+      const userId = beatmap.user_id
+      if (typeof userId !== 'number' || userId <= 0) return null
+
+      const owners = (beatmap.owners ?? [])
+        .filter((owner): owner is { id: number; username: string } => {
+          return typeof owner.id === 'number' && typeof owner.username === 'string'
+        })
+        .map((owner) => ({ id: owner.id, username: owner.username }))
+
+      return { userId, owners }
+    })
+    .filter((beatmap): beatmap is BeatmapsetExtendedInfo['beatmaps'][number] => beatmap !== null)
+
+  return { userId: set.user_id, beatmaps }
+}
+
+export async function fetchUserProfile(userId: number): Promise<OsuUserProfile | null> {
+  if (userId <= 0) return null
+
+  const cached = readCache(profileCache, userId)
+  if (cached !== undefined) return cached
+
+  const accessToken = await getAccessToken()
+  if (!accessToken) return null
+
+  const response = await fetch(`${API_BASE}/users/${userId}`, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      'User-Agent': USER_AGENT
+    }
+  })
+
+  if (!response.ok) {
+    writeCache(profileCache, userId, null)
+    return null
+  }
+
+  const payload = (await response.json()) as {
+    id?: number
+    username?: string
+    previous_usernames?: string[]
+  }
+
+  if (typeof payload.id !== 'number' || typeof payload.username !== 'string') {
+    writeCache(profileCache, userId, null)
+    return null
+  }
+
+  const previousNames = new Set<string>()
+  for (const name of payload.previous_usernames ?? []) {
+    if (typeof name === 'string' && name.trim()) previousNames.add(name.trim())
+  }
+
+  const profile: OsuUserProfile = {
+    id: payload.id,
+    username: payload.username,
+    previousUsernames: [...previousNames]
+  }
+
+  writeCache(profileCache, userId, profile)
+  return profile
+}
+
+export async function fetchUserLatestBeatmapsetTagContext(
+  userId: number,
+  type: 'ranked' | 'guest'
+): Promise<UserBeatmapsetTagContext | null> {
+  if (userId <= 0) return null
+
+  const cacheKey = `${userId}:${type}:context`
+  const cached = readCache(userBeatmapsetContextCache, cacheKey)
+  if (cached !== undefined) return cached
+
+  const accessToken = await getAccessToken()
+  if (!accessToken) return null
+
+  const url = new URL(`${API_BASE}/users/${userId}/beatmapsets/${type}`)
+  url.searchParams.set('limit', '5')
+
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      'User-Agent': USER_AGENT
+    }
+  })
+
+  if (!response.ok) {
+    writeCache(userBeatmapsetContextCache, cacheKey, null)
+    return null
+  }
+
+  const sets = (await response.json()) as ApiBeatmapset[]
+  const latest = sortBeatmapsetsByRankedDate(sets)[0]
+  const tags = latest?.tags?.trim() ?? ''
+  const beatmapSetId = typeof latest?.id === 'number' ? latest.id : 0
+  const context =
+    beatmapSetId > 0 && tags.length > 0 ? { beatmapSetId, tags } : null
+
+  writeCache(userBeatmapsetContextCache, cacheKey, context)
+  return context
+}
+
+export async function fetchUserLatestBeatmapsetTags(
+  userId: number,
+  type: 'ranked' | 'guest'
+): Promise<string | null> {
+  const context = await fetchUserLatestBeatmapsetTagContext(userId, type)
+  return context?.tags ?? null
 }

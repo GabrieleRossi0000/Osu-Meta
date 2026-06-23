@@ -1,4 +1,4 @@
-﻿@font-face {
+@font-face {
   font-family: 'Nunito';
   src: url('../assets/fonts/Nunito-Light.ttf') format('truetype');
   font-weight: 300;
@@ -480,6 +480,360 @@
     background: var(--mantine-color-dark-6);
     border-color: var(--mantine-color-primary-5);
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--mantine-color-primary-5) 20%, transparent);
+  }
+}
+
+/* Tag suggestion sections */
+.mv-tag-sections {
+  margin-top: 2px;
+}
+
+.mv-tag-section {
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--mantine-color-dark-3) 55%, transparent);
+  background: color-mix(in srgb, var(--mantine-color-dark-6) 72%, transparent);
+  overflow: hidden;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+
+  &--open {
+    border-color: color-mix(in srgb, var(--mantine-color-dark-2) 45%, transparent);
+    background: color-mix(in srgb, var(--mantine-color-dark-5) 88%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 4%, transparent);
+  }
+}
+
+.mv-tag-section-header {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  transition: background-color 150ms ease;
+
+  &:hover {
+    background: color-mix(in srgb, white 3%, transparent);
+  }
+}
+
+.mv-tag-section-label {
+  color: var(--mantine-color-gray-1);
+  line-height: 1.35;
+}
+
+.mv-tag-section-status-pill {
+  flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mantine-color-blue-9) 55%, var(--mantine-color-dark-6));
+  border: 1px solid color-mix(in srgb, var(--mantine-color-blue-5) 28%, transparent);
+
+  span {
+    color: var(--mantine-color-blue-2);
+    font-weight: 500;
+  }
+
+  &--loading {
+    animation: mv-tag-section-pulse 1.6s ease-in-out infinite;
+  }
+}
+
+.mv-tag-section-count,
+.mv-tag-section-done {
+  flex-shrink: 0;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.mv-tag-section-body {
+  padding: 0 12px 10px;
+}
+
+.mv-tag-section-status {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mantine-color-dark-7) 80%, black);
+  border: 1px solid color-mix(in srgb, var(--mantine-color-dark-3) 40%, transparent);
+
+  &--complete {
+    background: color-mix(in srgb, var(--mantine-color-teal-9) 22%, var(--mantine-color-dark-7));
+    border-color: color-mix(in srgb, var(--mantine-color-teal-6) 22%, transparent);
+  }
+}
+
+.mv-tag-section-status-text {
+  color: var(--mantine-color-gray-3);
+  line-height: 1.45;
+}
+
+.mv-tag-section-status--complete .mv-tag-section-status-text {
+  color: var(--mantine-color-teal-2);
+}
+
+.mv-tag-section-status-icon {
+  flex-shrink: 0;
+  color: var(--mantine-color-teal-4);
+}
+
+@keyframes mv-tag-section-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.72;
+  }
+}
+
+/* Unified tag suggestions panel (tabs) */
+.mv-tag-suggestions-panel {
+  margin-top: 2px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--mantine-color-dark-3) 55%, transparent);
+  background: color-mix(in srgb, var(--mantine-color-dark-6) 72%, transparent);
+  overflow: hidden;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+
+  &--open {
+    border-color: color-mix(in srgb, var(--mantine-color-dark-2) 45%, transparent);
+    background: color-mix(in srgb, var(--mantine-color-dark-5) 88%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 4%, transparent);
+  }
+}
+
+.mv-tag-suggestions-panel-header {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  transition: background-color 150ms ease;
+
+  &:hover {
+    background: color-mix(in srgb, white 3%, transparent);
+  }
+}
+
+.mv-tag-suggestions-panel-body {
+  padding: 0 12px 12px;
+}
+
+.mv-tag-suggestions-hint {
+  color: var(--mantine-color-gray-5);
+  line-height: 1.4;
+}
+
+.mv-tag-suggestions-tabs-root {
+  --tabs-list-gap: 6px;
+}
+
+.mv-tag-suggestions-tabs-list {
+  flex-wrap: wrap;
+  gap: 6px;
+  background: transparent;
+  padding: 0;
+}
+
+.mv-tag-suggestions-tab {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  min-height: 32px;
+  cursor: pointer;
+  border: 1px solid color-mix(in srgb, var(--mantine-color-dark-3) 55%, transparent);
+  background: color-mix(in srgb, var(--mantine-color-dark-7) 75%, transparent);
+  color: var(--mantine-color-gray-3);
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+
+  &:hover {
+    background: color-mix(in srgb, white 5%, var(--mantine-color-dark-6));
+    color: var(--mantine-color-gray-1);
+    border-color: color-mix(in srgb, var(--mantine-color-dark-2) 50%, transparent);
+  }
+
+  &[data-active] {
+    border-color: color-mix(in srgb, var(--mantine-color-blue-5) 55%, transparent);
+    background: color-mix(in srgb, var(--mantine-color-blue-9) 40%, var(--mantine-color-dark-6));
+    color: var(--mantine-color-gray-0);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--mantine-color-blue-5) 25%, transparent);
+  }
+}
+
+.mv-tag-suggestions-tab-count {
+  min-width: 18px;
+  height: 18px;
+  padding: 0;
+  font-size: 10px;
+}
+
+.mv-tag-suggestions-category-desc {
+  color: var(--mantine-color-gray-5);
+  line-height: 1.45;
+}
+
+.mv-tag-suggestions-content-box {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mantine-color-dark-7) 82%, black);
+  border: 1px solid color-mix(in srgb, var(--mantine-color-dark-3) 45%, transparent);
+}
+
+.mv-tag-suggestions-pills {
+  align-items: flex-start;
+}
+
+.mv-tag-suggestion-pill {
+  cursor: pointer;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    filter 120ms ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.08);
+    box-shadow: 0 2px 8px color-mix(in srgb, black 35%, transparent);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  &--page {
+    border-style: dashed;
+  }
+}
+
+.mv-tag-tooltip {
+  pointer-events: all;
+}
+
+.mv-tag-tooltip-link {
+  cursor: pointer;
+  color: var(--mantine-color-blue-3);
+
+  &:hover {
+    color: var(--mantine-color-blue-2);
+  }
+}
+
+.mv-mismatch-alert-details {
+  margin-top: 4px;
+}
+
+.mv-mismatch-alert-toggle {
+  display: inline-flex;
+  border-radius: 6px;
+  padding: 2px 4px;
+  color: var(--mantine-color-yellow-2);
+
+  &:hover {
+    background: color-mix(in srgb, var(--mantine-color-yellow-9) 18%, transparent);
+  }
+}
+
+.mv-mismatch-alert-panel {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mantine-color-dark-7) 88%, black);
+  border: 1px solid color-mix(in srgb, var(--mantine-color-dark-3) 45%, transparent);
+
+  &--ranked {
+    background: color-mix(in srgb, var(--mantine-color-yellow-9) 12%, var(--mantine-color-dark-7));
+    border-color: color-mix(in srgb, var(--mantine-color-yellow-7) 22%, transparent);
+  }
+}
+
+.mv-mismatch-alert-kicker {
+  color: var(--mantine-color-gray-4);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.mv-mismatch-diff-name {
+  color: var(--mantine-color-gray-5);
+  font-size: 11px;
+}
+
+.mv-mismatch-value-row {
+  padding: 4px 6px;
+  border-radius: 6px;
+
+  &--compact {
+    padding: 2px 6px;
+    min-height: 22px;
+  }
+
+  &--match {
+    background: color-mix(in srgb, var(--mantine-color-teal-9) 10%, transparent);
+  }
+
+  &--mismatch {
+    background: color-mix(in srgb, var(--mantine-color-red-9) 10%, transparent);
+  }
+}
+
+.mv-mismatch-diff-value {
+  color: var(--mantine-color-gray-2);
+
+  &--compact {
+    font-size: 11px;
+    line-height: 1.35;
+  }
+}
+
+.mv-mismatch-field-block + .mv-mismatch-field-block {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--mantine-color-dark-3) 35%, transparent);
+}
+
+.mv-mismatch-field-label {
+  color: var(--mantine-color-gray-4);
+  letter-spacing: 0.02em;
+}
+
+.mv-mismatch-scroll {
+  padding-right: 4px;
+}
+
+.mv-mismatch-combo-swatch {
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  border: 1px solid color-mix(in srgb, white 18%, transparent);
+  flex-shrink: 0;
+
+  &--compact {
+    width: 14px;
+    height: 14px;
+    border-radius: 3px;
+  }
+}
+
+.mv-mismatch-combo-rgb {
+  color: var(--mantine-color-gray-3);
+  font-family: var(--mantine-font-family-monospace);
+}
+
+.mv-mismatch-ranked-link {
+  display: inline-flex;
+  margin-top: 2px;
+  border-radius: 6px;
+  padding: 2px 0;
+
+  &:hover {
+    text-decoration: underline;
   }
 }
 

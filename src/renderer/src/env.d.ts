@@ -10,12 +10,16 @@ import type {
   ImportSourceData,
   LoadedMetadata,
   OsuBeatmapsetSearchHit,
+  RankedGenreLanguageResult,
   RankedSourceSuggestionResult,
   SaveMetadataPayload,
   SaveMetadataResult,
+  SuggestRankedGenreLanguageRequest,
   SuggestRankedSourceRequest,
   CurrentBeatmapLookupResult,
-  TagSectionsExpanded
+  TagSectionsExpanded,
+  GuestMapperTagSuggestion,
+  SetOwnerAlternateTagSuggestion
 } from '@shared/types'
 import type { UpdaterDialogAction, UpdaterDialogPayload } from '@shared/updater-dialog'
 
@@ -40,10 +44,11 @@ interface WindowApi {
   suggestRankedSource: (
     request: SuggestRankedSourceRequest
   ) => Promise<RankedSourceSuggestionResult>
+  suggestRankedGenreLanguage: (
+    request: SuggestRankedGenreLanguageRequest
+  ) => Promise<RankedGenreLanguageResult>
   isOsuApiConfigured: () => Promise<boolean>
   isOsuRunning: () => Promise<boolean>
-  isDuplicateWarningIgnored: (folderPath: string) => Promise<boolean>
-  setDuplicateWarningIgnored: (folderPath: string, ignored: boolean) => Promise<void>
   isArtistTitleTagWarningIgnored: (folderPath: string) => Promise<boolean>
   setArtistTitleTagWarningIgnored: (folderPath: string, ignored: boolean) => Promise<void>
   getDismissedWrongTagHints: (folderPath: string) => Promise<string[]>
@@ -57,6 +62,10 @@ interface WindowApi {
   onUpdaterDialog: (callback: (payload: UpdaterDialogPayload) => void) => () => void
   onUpdaterInstalling: (callback: () => void) => () => void
   respondToUpdaterDialog: (action: UpdaterDialogAction) => Promise<void>
+  suggestGuestMapperApiTags: (beatmapSetId: number) => Promise<GuestMapperTagSuggestion[]>
+  suggestHostAlternateNameTags: (
+    beatmapSetId: number
+  ) => Promise<SetOwnerAlternateTagSuggestion[]>
   window: {
     minimize: () => void
     toggleMaximize: () => void

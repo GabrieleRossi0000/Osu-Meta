@@ -1,5 +1,11 @@
 const USER_AGENT = 'OsuMeta/1.0'
 
+/** Genre/Language as shown on the beatmap page (set-level on osu! API / website). */
+export interface OsuGenreLanguage {
+  id?: number
+  name?: string
+}
+
 export interface OsuWebBeatmapset {
   id: number
   artist: string
@@ -12,9 +18,20 @@ export interface OsuWebBeatmapset {
   play_count: number
   ranked_date?: string
   tags?: string
+  genre?: OsuGenreLanguage
+  language?: OsuGenreLanguage
   covers?: {
     cover?: string
   }
+}
+
+function parseGenreLanguageField(value: unknown): OsuGenreLanguage | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const record = value as { id?: unknown; name?: unknown }
+  const id = typeof record.id === 'number' ? record.id : undefined
+  const name = typeof record.name === 'string' ? record.name : undefined
+  if (id == null && !name) return undefined
+  return { id, name }
 }
 
 function parseJsonScript(html: string, scriptId: string): unknown | null {
@@ -86,6 +103,8 @@ export async function fetchBeatmapsetFromWebPage(
       play_count: set.play_count ?? 0,
       ranked_date: typeof set.ranked_date === 'string' ? set.ranked_date : undefined,
       tags: typeof set.tags === 'string' ? set.tags : '',
+      genre: parseGenreLanguageField(set.genre),
+      language: parseGenreLanguageField(set.language),
       covers: set.covers
     }
   } catch {
@@ -105,6 +124,16 @@ export function toSourceMatchCandidate(set: OsuWebBeatmapset) {
     creator: set.creator,
     playCount: set.play_count,
     rankedDate: set.ranked_date
+  }
+}
+
+export function webBeatmapsetGenreLanguage(set: OsuWebBeatmapset): {
+  genre: string
+  language: string
+} {
+  return {
+    genre: set.genre?.name?.trim() ?? '',
+    language: set.language?.name?.trim() ?? ''
   }
 }
 

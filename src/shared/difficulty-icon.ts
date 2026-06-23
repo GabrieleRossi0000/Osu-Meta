@@ -4,9 +4,9 @@ export function modeToGamemode(mode: number): string {
   return MODE_NAMES[mode] ?? 'std'
 }
 
-/** Icons use one decimal place, e.g. stars_5.2@2x.png */
+/** Icons use one decimal place, e.g. stars_5.2@2x.png (asset set tops out at 9.0). */
 export function formatStarRatingForIcon(stars: number): string {
-  const clamped = Math.max(0, Math.min(10, stars))
+  const clamped = Math.max(0, Math.min(9, stars))
   return clamped.toFixed(1)
 }
 

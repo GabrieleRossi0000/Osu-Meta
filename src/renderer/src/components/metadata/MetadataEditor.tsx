@@ -32,6 +32,8 @@ import type {
   BeatmapDifficultySummary,
   BeatmapMetadata,
   BeatmapSetSummary,
+  ComboColourMismatchGroup,
+  MetadataFieldMismatchDetail,
   TagSectionsExpanded
 } from '@shared/types'
 import { beatmapsetSupportsComboColours, gameModesFromModeInts } from '@shared/osu-game-mode'
@@ -40,6 +42,7 @@ import DifficultyList from './DifficultyList'
 import TagsField from './TagsField'
 import SourceField from './SourceField'
 import ComboColoursEditor from './ComboColoursEditor'
+import SetMismatchAlert from './SetMismatchAlert'
 
 function formatLastModified(ms: number): string {
   return new Date(ms).toLocaleString(undefined, {
@@ -52,11 +55,13 @@ interface MetadataEditorProps {
   selected: BeatmapSetSummary
   metadata: BeatmapMetadata
   difficulties: BeatmapDifficultySummary[]
-  difficultyVersions: string[]
   creator: string
   isFeaturedArtist: boolean
+  featuredArtistContext: boolean
   isOnOsuWebsite: boolean
   mismatched: boolean
+  metadataMismatchDetails: MetadataFieldMismatchDetail[]
+  comboColourMismatchDetails: ComboColourMismatchGroup[]
   comboColours: BeatmapComboColour[]
   comboColoursMismatched: boolean
   isDirty: boolean
@@ -79,11 +84,13 @@ export default function MetadataEditor({
   selected,
   metadata,
   difficulties,
-  difficultyVersions,
   creator,
   isFeaturedArtist,
+  featuredArtistContext,
   isOnOsuWebsite,
   mismatched,
+  metadataMismatchDetails,
+  comboColourMismatchDetails,
   comboColours,
   comboColoursMismatched,
   isDirty,
@@ -127,11 +134,15 @@ export default function MetadataEditor({
   const validationIssues = useMemo(
     () =>
       getMetadataValidationIssues(metadata, {
-        mismatched,
-        comboColoursMismatched: supportsComboColours ? comboColoursMismatched : false
+        mismatched: false,
+        comboColoursMismatched: false
       }),
-    [metadata, mismatched, comboColoursMismatched, supportsComboColours]
+    [metadata]
   )
+
+  const showMetadataMismatch = mismatched
+  const showComboMismatch = supportsComboColours && comboColoursMismatched
+  const showSetMismatch = showMetadataMismatch || showComboMismatch
 
   const update = (key: keyof BeatmapMetadata, value: string): void => {
     const next = { ...metadata, [key]: value }
@@ -384,6 +395,15 @@ export default function MetadataEditor({
         ) : null}
 
         <Stack gap="md" className="mv-stagger-children" component="form" onSubmit={(e) => { e.preventDefault(); onSave() }}>
+          {showSetMismatch ? (
+            <SetMismatchAlert
+              hasMetadataMismatch={showMetadataMismatch}
+              hasComboMismatch={showComboMismatch}
+              metadataMismatchDetails={metadataMismatchDetails}
+              comboColourMismatchDetails={comboColourMismatchDetails}
+            />
+          ) : null}
+
           {validationIssues.map((issue) => (
             <Alert
               key={issue.id}
@@ -393,9 +413,6 @@ export default function MetadataEditor({
               variant="light"
             >
               {issue.message}
-              {issue.id === 'mismatched' || issue.id === 'combo-colours-mismatched'
-                ? ' Saving will unify all .osu files in this set.'
-                : ''}
             </Alert>
           ))}
 
@@ -456,9 +473,9 @@ export default function MetadataEditor({
             title={metadata.title}
             folderName={selected.folderName}
             source={metadata.source}
-            difficultyVersions={difficultyVersions}
-            creator={creator}
+            beatmapSetId={beatmapSetId}
             isFeaturedArtist={isFeaturedArtist}
+            featuredArtistContext={featuredArtistContext}
             tagSectionsExpanded={tagSectionsExpanded}
             onTagSectionsExpandedChange={onTagSectionsExpandedChange}
             onChange={(tags) => update('tags', tags)}

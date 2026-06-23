@@ -16,7 +16,6 @@ export interface BeatmapComboColour {
 
 export interface BeatmapSetFlags {
   needsTags: boolean
-  hasDuplicates: boolean
   mismatchedMetadata: boolean
   faMissingGuild: boolean
 }
@@ -41,13 +40,42 @@ export interface BeatmapDifficultySummary {
   filename: string
 }
 
+export interface MetadataFieldMismatchDetail {
+  field: string
+  label: string
+  entries: Array<{ version: string; filename: string; value: string }>
+}
+
+export interface ComboColourMismatchGroup {
+  summary: string
+  comboColours: BeatmapComboColour[]
+  entries: Array<{ version: string; filename: string }>
+}
+
+export interface PerDifficultyComboSnapshot {
+  version: string
+  filename: string
+  comboColours: BeatmapComboColour[]
+}
+
+export interface DifficultyGeneralSettings {
+  version: string
+  filename: string
+  genre: string
+  language: string
+}
+
 export interface LoadedMetadata {
   metadata: BeatmapMetadata
   mismatched: boolean
   /** Metadata fields that differ between .osu files in this set. */
   mismatchedFields: (keyof BeatmapMetadata)[]
+  metadataMismatchDetails: MetadataFieldMismatchDetail[]
   comboColours: BeatmapComboColour[]
   comboColoursMismatched: boolean
+  comboColourMismatchDetails: ComboColourMismatchGroup[]
+  perDifficultyComboColours: PerDifficultyComboSnapshot[]
+  difficultyGeneralSettings: DifficultyGeneralSettings[]
   diffCount: number
   lockArtistRomanized: boolean
   lockTitleRomanized: boolean
@@ -73,14 +101,57 @@ export type RankedSourceSuggestionResult =
   | { kind: 'no_source' }
   | { kind: 'unavailable'; message: string }
 
+export interface RankedGenreLanguageSuggestion {
+  beatmapSetId: number
+  artist: string
+  title: string
+  creator: string
+  rankedDate: string | null
+  rankedTags: string
+  pageGenre: string
+  pageLanguage: string
+  genreTags: string[]
+  languageTags: string[]
+}
+
+export type RankedGenreLanguageResult =
+  | { kind: 'found'; suggestion: RankedGenreLanguageSuggestion }
+  | { kind: 'not_found' }
+  | { kind: 'unavailable'; message: string }
+
+export interface SuggestRankedGenreLanguageRequest {
+  artistUnicode: string
+  artist: string
+  titleUnicode: string
+  title: string
+  beatmapSetId: number | null
+}
+
 export interface TagSectionsExpanded {
   featured: boolean
   source: boolean
+  language: boolean
+  genre: boolean
   guest: boolean
   guild: boolean
   collab: boolean
   wrongTags: boolean
 }
+
+export interface GuestMapperTagSuggestion {
+  mapperUsername: string
+  tag: string
+  kind: 'current' | 'previous'
+}
+
+export interface SetOwnerAlternateTagSuggestion {
+  previousUsername: string
+  tag: string
+  sourceBeatmapSetId: number
+}
+
+/** @deprecated Use GuestMapperTagSuggestion */
+export type GuestMapperHistoricalTagSuggestion = GuestMapperTagSuggestion
 
 export interface ScanCacheEntry {
   lastModifiedMs: number
@@ -96,7 +167,6 @@ export interface ScanCache {
 
 export interface AppSettings {
   songsPath: string | null
-  ignoredDuplicateFolders: string[]
   ignoredArtistTitleTagFolders: string[]
   tagSectionsExpanded: TagSectionsExpanded
   dismissedWrongTagHints: Record<string, string[]>

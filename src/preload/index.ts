@@ -9,11 +9,15 @@ import type {
   ImportSourceData,
   LoadedMetadata,
   OsuBeatmapsetSearchHit,
+  RankedGenreLanguageResult,
   RankedSourceSuggestionResult,
   SaveMetadataPayload,
   SaveMetadataResult,
+  SuggestRankedGenreLanguageRequest,
   SuggestRankedSourceRequest,
-  TagSectionsExpanded
+  TagSectionsExpanded,
+  GuestMapperTagSuggestion,
+  SetOwnerAlternateTagSuggestion
 } from '../shared/types'
 import type { UpdaterDialogAction, UpdaterDialogPayload } from '../shared/updater-dialog'
 
@@ -48,12 +52,12 @@ const api = {
     ipcRenderer.invoke('check-beatmap-set-online', beatmapSetId),
   suggestRankedSource: (request: SuggestRankedSourceRequest): Promise<RankedSourceSuggestionResult> =>
     ipcRenderer.invoke('suggest-ranked-source', request),
+  suggestRankedGenreLanguage: (
+    request: SuggestRankedGenreLanguageRequest
+  ): Promise<RankedGenreLanguageResult> =>
+    ipcRenderer.invoke('suggest-ranked-genre-language', request),
   isOsuApiConfigured: (): Promise<boolean> => ipcRenderer.invoke('is-osu-api-configured'),
   isOsuRunning: (): Promise<boolean> => ipcRenderer.invoke('is-osu-running'),
-  isDuplicateWarningIgnored: (folderPath: string): Promise<boolean> =>
-    ipcRenderer.invoke('is-duplicate-warning-ignored', folderPath),
-  setDuplicateWarningIgnored: (folderPath: string, ignored: boolean): Promise<void> =>
-    ipcRenderer.invoke('set-duplicate-warning-ignored', folderPath, ignored),
   isArtistTitleTagWarningIgnored: (folderPath: string): Promise<boolean> =>
     ipcRenderer.invoke('is-artist-title-tag-warning-ignored', folderPath),
   setArtistTitleTagWarningIgnored: (folderPath: string, ignored: boolean): Promise<void> =>
@@ -92,6 +96,12 @@ const api = {
   },
   respondToUpdaterDialog: (action: UpdaterDialogAction): Promise<void> =>
     ipcRenderer.invoke('updater:respond', action),
+  suggestGuestMapperApiTags: (beatmapSetId: number): Promise<GuestMapperTagSuggestion[]> =>
+    ipcRenderer.invoke('suggest-guest-mapper-api-tags', beatmapSetId),
+  suggestHostAlternateNameTags: (
+    beatmapSetId: number
+  ): Promise<SetOwnerAlternateTagSuggestion[]> =>
+    ipcRenderer.invoke('suggest-host-alternate-name-tags', beatmapSetId),
   window: {
     minimize: (): void => ipcRenderer.send('window-minimize'),
     toggleMaximize: (): void => ipcRenderer.send('window-toggle-maximize'),

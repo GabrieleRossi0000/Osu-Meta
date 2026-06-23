@@ -4,10 +4,15 @@ import {
 } from '../shared/romanization'
 import { comboColoursEqual } from '../shared/combo-colours'
 import {
+  buildComboColourMismatchDetails,
+  buildMetadataMismatchDetails
+} from '../shared/metadata-mismatch'
+import {
   coerceSaveMetadataPayload,
   getDirtyMetadataFields,
   getMismatchedMetadataFields,
-  metadataEquals
+  metadataEquals,
+  pickRepresentativeMetadata
 } from '../shared/metadata-utils'
 import type {
   BeatmapMetadata,
@@ -34,6 +39,8 @@ import { readDifficultySummaryFromText } from './osu-difficulty'
 import {
   readBeatmapSetIdFromContent,
   readComboColoursFromContent,
+  readGenreFromContent,
+  readLanguageFromContent,
   readMetadataFieldFromContent,
   readMetadataFromContent,
   readOsuFileText,
@@ -51,11 +58,11 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
   const texts = osuFiles.map((filePath) => readOsuFileText(filePath))
   const metadatas = texts.map((text) => readMetadataFromContent(text))
   const comboLists = texts.map((text) => readComboColoursFromContent(text))
-  const primary = metadatas[0]
+  const representative = pickRepresentativeMetadata(metadatas)
   let mismatched = false
 
   for (let i = 1; i < metadatas.length; i++) {
-    if (!metadataEquals(primary, metadatas[i])) {
+    if (!metadataEquals(representative, metadatas[i])) {
       mismatched = true
       break
     }
@@ -70,10 +77,26 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
     }
   }
 
-  const locks = getRomanizedFieldLocks(primary)
-  const metadata = applyRomanizedFieldLocks(primary, locks)
+  const locks = getRomanizedFieldLocks(representative)
+  const metadata = applyRomanizedFieldLocks(representative, locks)
 
   const difficultyVersions = texts.map((text) => readVersionFromContent(text))
+  const perDifficultyMetadata = texts.map((text, index) => ({
+    version: readVersionFromContent(text),
+    filename: basename(osuFiles[index]),
+    metadata: metadatas[index]
+  }))
+  const perDifficultyCombo = texts.map((text, index) => ({
+    version: readVersionFromContent(text),
+    filename: basename(osuFiles[index]),
+    comboColours: comboLists[index]
+  }))
+  const difficultyGeneralSettings = texts.map((text, index) => ({
+    version: readVersionFromContent(text),
+    filename: basename(osuFiles[index]),
+    genre: readGenreFromContent(text),
+    language: readLanguageFromContent(text)
+  }))
   const difficulties = texts
     .map((text, index) => readDifficultySummaryFromText(text, basename(osuFiles[index])))
     .sort((a, b) => a.starRating - b.starRating || a.version.localeCompare(b.version))
@@ -92,8 +115,12 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
     metadata,
     mismatched,
     mismatchedFields: getMismatchedMetadataFields(metadatas),
+    metadataMismatchDetails: buildMetadataMismatchDetails(perDifficultyMetadata),
     comboColours: primaryCombo,
     comboColoursMismatched,
+    comboColourMismatchDetails: buildComboColourMismatchDetails(perDifficultyCombo),
+    perDifficultyComboColours: perDifficultyCombo,
+    difficultyGeneralSettings,
     diffCount: osuFiles.length,
     lockArtistRomanized: locks.artist,
     lockTitleRomanized: locks.title,

@@ -4,33 +4,39 @@ import {
   Badge,
   Box,
   Button,
-  Collapse,
   Group,
   Text,
   Textarea,
-  Tooltip,
-  UnstyledButton
+  Tooltip
 } from '@mantine/core'
-import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconX } from '@tabler/icons-react'
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import { getSuggestedCollabTags } from '@shared/collab'
+import { IconAlertTriangle, IconX } from '@tabler/icons-react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   getSuggestedFeaturedArtistTags,
-  getSuggestedMappersGuildQuestTags
+  getSuggestedMappersGuildQuestTags,
+  hasPartialFeaturedArtistTags
 } from '@shared/featured-artist'
-import { getSuggestedGuestMapperTags } from '@shared/guest-mapper'
-import { getTagHintSuggestions } from '@shared/tag-hints'
-import type { TagSectionsExpanded } from '@shared/types'
+import {
+  canLookupRankedGenreLanguageTags,
+  buildGenreLanguageTagSuggestions,
+  type GenreLanguageTagSuggestion
+} from '@shared/genre-language-tags'
+import { getTagHintSuggestions, hasMatchableTagHints } from '@shared/tag-hints'
+import type {
+  GuestMapperTagSuggestion,
+  RankedGenreLanguageSuggestion,
+  SetOwnerAlternateTagSuggestion,
+  TagSectionsExpanded
+} from '@shared/types'
 import { getWrongTagSuggestions, removeTagByValue } from '@shared/wrong-tags'
 import {
   addTag,
   getArtistTitleTagOccurrences,
-  getDuplicateTagOccurrences,
   hasArtistTitleTags,
-  hasDuplicateTags,
   removeArtistTitleTags,
-  removeTagAtIndex
+  tagListIncludes
 } from '@shared/tags'
+import TagSuggestionsPanel, { type TagSuggestionCategory } from './TagSuggestionsPanel'
 
 interface TagsFieldProps {
   folderPath: string
@@ -41,44 +47,42 @@ interface TagsFieldProps {
   title: string
   folderName: string
   source: string
-  difficultyVersions: string[]
-  creator: string
+  beatmapSetId: number | null
   isFeaturedArtist: boolean
+  /** True when osu! marks the set FA or the loaded map already had FA tags. */
+  featuredArtistContext: boolean
   tagSectionsExpanded: TagSectionsExpanded
   onTagSectionsExpandedChange: (value: TagSectionsExpanded) => void
   onChange: (tags: string) => void
 }
 
-function CollapsibleTagSection({
-  sectionKey,
-  label,
-  expanded,
-  onToggle,
-  children
+function RankedSetTooltipLabel({
+  beatmapSetId,
+  variant
 }: {
-  sectionKey: keyof TagSectionsExpanded
-  label: string
-  expanded: boolean
-  onToggle: (key: keyof TagSectionsExpanded) => void
-  children: ReactNode
-}): JSX.Element | null {
-  if (children == null) return null
+  beatmapSetId: number
+  variant: 'tags' | 'page' | 'gd'
+}): JSX.Element {
+  const prefix =
+    variant === 'page' ? 'From the page' : variant === 'gd' ? 'From your last GD' : 'From the set'
 
   return (
-    <Box mb="xs">
-      <UnstyledButton
-        onClick={() => onToggle(sectionKey)}
-        style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}
+    <Text size="xs" lh={1.4}>
+      {prefix}{' '}
+      <Text
+        component="span"
+        size="xs"
+        td="underline"
+        className="mv-tag-tooltip-link"
+        onClick={(event) => {
+          event.preventDefault()
+          event.stopPropagation()
+          void window.api.openBeatmapPage(beatmapSetId)
+        }}
       >
-        {expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
-        <Text size="xs" c="dimmed">
-          {label}
-        </Text>
-      </UnstyledButton>
-      <Collapse in={expanded}>
-        <Group gap={6}>{children}</Group>
-      </Collapse>
-    </Box>
+        #{beatmapSetId}
+      </Text>
+    </Text>
   )
 }
 
@@ -91,11 +95,11 @@ export default function TagsField({
   title,
   folderName,
   source,
-  difficultyVersions,
-  creator,
+  beatmapSetId,
   isFeaturedArtist,
-  tagSectionsExpanded,
-  onTagSectionsExpandedChange,
+  featuredArtistContext,
+  tagSectionsExpanded: _tagSectionsExpanded,
+  onTagSectionsExpandedChange: _onTagSectionsExpandedChange,
   onChange
 }: TagsFieldProps): JSX.Element {
   const hintContext = useMemo(
@@ -104,23 +108,115 @@ export default function TagsField({
   )
 
   const [dismissedWrongIds, setDismissedWrongIds] = useState<string[]>([])
-  const [duplicateIgnored, setDuplicateIgnored] = useState(false)
   const [artistTitleTagsIgnored, setArtistTitleTagsIgnored] = useState(false)
-  const [duplicatesOpen, setDuplicatesOpen] = useState(false)
+  const [apiGuestSuggestions, setApiGuestSuggestions] = useState<GuestMapperTagSuggestion[]>([])
+  const [apiGuestLoading, setApiGuestLoading] = useState(false)
+  const [hostAlternateSuggestions, setHostAlternateSuggestions] = useState<
+    SetOwnerAlternateTagSuggestion[]
+  >([])
+  const [hostAlternateLoading, setHostAlternateLoading] = useState(false)
+  const [rankedTagSource, setRankedTagSource] = useState<RankedGenreLanguageSuggestion | null>(null)
+  const [rankedTagsLoading, setRankedTagsLoading] = useState(false)
+
+  const canLookupRankedTags = canLookupRankedGenreLanguageTags(
+    artistUnicode,
+    artist,
+    titleUnicode,
+    title
+  )
 
   useEffect(() => {
-    void window.api.isDuplicateWarningIgnored(folderPath).then(setDuplicateIgnored)
     void window.api.isArtistTitleTagWarningIgnored(folderPath).then(setArtistTitleTagsIgnored)
     void window.api.getDismissedWrongTagHints(folderPath).then(setDismissedWrongIds)
-    setDuplicatesOpen(false)
   }, [folderPath])
 
   useEffect(() => {
-    if (!hasDuplicateTags(tags) && duplicateIgnored) {
-      setDuplicateIgnored(false)
-      void window.api.setDuplicateWarningIgnored(folderPath, false)
+    if (beatmapSetId == null || beatmapSetId <= 0) {
+      setApiGuestSuggestions([])
+      setApiGuestLoading(false)
+      return
     }
-  }, [tags, duplicateIgnored, folderPath])
+
+    let cancelled = false
+    setApiGuestLoading(true)
+
+    void window.api
+      .suggestGuestMapperApiTags(beatmapSetId)
+      .then((suggestions) => {
+        if (!cancelled) setApiGuestSuggestions(suggestions)
+      })
+      .catch(() => {
+        if (!cancelled) setApiGuestSuggestions([])
+      })
+      .finally(() => {
+        if (!cancelled) setApiGuestLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [beatmapSetId])
+
+  useEffect(() => {
+    if (beatmapSetId == null || beatmapSetId <= 0) {
+      setHostAlternateSuggestions([])
+      setHostAlternateLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setHostAlternateLoading(true)
+
+    void window.api
+      .suggestHostAlternateNameTags(beatmapSetId)
+      .then((suggestions) => {
+        if (!cancelled) setHostAlternateSuggestions(suggestions)
+      })
+      .catch(() => {
+        if (!cancelled) setHostAlternateSuggestions([])
+      })
+      .finally(() => {
+        if (!cancelled) setHostAlternateLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [beatmapSetId])
+
+  useEffect(() => {
+    if (!canLookupRankedTags) {
+      setRankedTagSource(null)
+      setRankedTagsLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setRankedTagsLoading(true)
+
+    void window.api
+      .suggestRankedGenreLanguage({
+        artistUnicode,
+        artist,
+        titleUnicode,
+        title,
+        beatmapSetId
+      })
+      .then((result) => {
+        if (cancelled) return
+        setRankedTagSource(result.kind === 'found' ? result.suggestion : null)
+      })
+      .catch(() => {
+        if (!cancelled) setRankedTagSource(null)
+      })
+      .finally(() => {
+        if (!cancelled) setRankedTagsLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [canLookupRankedTags, artistUnicode, artist, titleUnicode, title, beatmapSetId])
 
   useEffect(() => {
     if (
@@ -132,22 +228,38 @@ export default function TagsField({
     }
   }, [tags, artistUnicode, artist, titleUnicode, title, source, artistTitleTagsIgnored, folderPath])
 
-  const guestMapperTags = useMemo(
-    () => getSuggestedGuestMapperTags(difficultyVersions, tags, creator),
-    [difficultyVersions, tags, creator]
+  const visibleGuestSuggestions = useMemo(
+    () => apiGuestSuggestions.filter(({ tag }) => !tagListIncludes(tags, tag)),
+    [apiGuestSuggestions, tags]
   )
 
-  const collabTags = useMemo(
-    () => getSuggestedCollabTags(difficultyVersions, tags, creator),
-    [difficultyVersions, tags, creator]
+  const apiCurrentGuestTags = useMemo(
+    () => visibleGuestSuggestions.filter(({ kind }) => kind === 'current'),
+    [visibleGuestSuggestions]
   )
+
+  const apiPreviousGuestTags = useMemo(
+    () => visibleGuestSuggestions.filter(({ kind }) => kind === 'previous'),
+    [visibleGuestSuggestions]
+  )
+
+  const visibleHostAlternateSuggestions = useMemo(
+    () => hostAlternateSuggestions.filter(({ tag }) => !tagListIncludes(tags, tag)),
+    [hostAlternateSuggestions, tags]
+  )
+
+  const suggestFeaturedArtistTags =
+    isFeaturedArtist || featuredArtistContext || hasPartialFeaturedArtistTags(tags)
 
   const featuredArtistTags = useMemo(
-    () => getSuggestedFeaturedArtistTags(tags, isFeaturedArtist),
-    [tags, isFeaturedArtist]
+    () => getSuggestedFeaturedArtistTags(tags, suggestFeaturedArtistTags),
+    [tags, suggestFeaturedArtistTags]
   )
 
-  const mappersGuildTags = useMemo(() => getSuggestedMappersGuildQuestTags(tags), [tags])
+  const mappersGuildTags = useMemo(
+    () => getSuggestedMappersGuildQuestTags(tags, suggestFeaturedArtistTags),
+    [tags, suggestFeaturedArtistTags]
+  )
 
   const patternHints = useMemo(() => getTagHintSuggestions(tags, hintContext), [tags, hintContext])
 
@@ -156,13 +268,34 @@ export default function TagsField({
     [tags, hintContext, dismissedWrongIds]
   )
 
-  const duplicateOccurrences = useMemo(() => getDuplicateTagOccurrences(tags), [tags])
-  const hasDuplicates = hasDuplicateTags(tags)
-  const showDuplicateUi = hasDuplicates && !duplicateIgnored
+  const rankedTagSuggestions = useMemo(() => {
+    if (!rankedTagSource) return { genre: [], language: [] }
+    return buildGenreLanguageTagSuggestions(
+      tags,
+      rankedTagSource.rankedTags,
+      rankedTagSource.pageGenre,
+      rankedTagSource.pageLanguage
+    )
+  }, [tags, rankedTagSource])
+  const visibleLanguageTags = rankedTagSuggestions.language
+  const visibleGenreTags = rankedTagSuggestions.genre
+
+  const showFeaturedSection = suggestFeaturedArtistTags
+  const showSourceSection = hasMatchableTagHints(hintContext)
+  const showLanguageSection = canLookupRankedTags
+  const showGenreSection = canLookupRankedTags
+  const showGuestSection = beatmapSetId != null && beatmapSetId > 0
+  const showCollabSection = beatmapSetId != null && beatmapSetId > 0
+  const showGuildSection = suggestFeaturedArtistTags
+  const showWrongTagsSection = wrongTagSuggestions.length > 0
+
+  const [tagSuggestionsOpen, setTagSuggestionsOpen] = useState(true)
+  const [activeTagCategory, setActiveTagCategory] = useState<keyof TagSectionsExpanded>('featured')
 
   useEffect(() => {
-    if (!showDuplicateUi) setDuplicatesOpen(false)
-  }, [showDuplicateUi])
+    setTagSuggestionsOpen(true)
+    setActiveTagCategory('featured')
+  }, [folderPath])
 
   const artistTitleTagOccurrences = useMemo(
     () => getArtistTitleTagOccurrences(tags, artistUnicode, artist, titleUnicode, title, source),
@@ -170,18 +303,6 @@ export default function TagsField({
   )
   const hasArtistTitleTagIssue = artistTitleTagOccurrences.length > 0
   const showArtistTitleTagUi = hasArtistTitleTagIssue && !artistTitleTagsIgnored
-
-  const toggleSection = (key: keyof TagSectionsExpanded): void => {
-    onTagSectionsExpandedChange({
-      ...tagSectionsExpanded,
-      [key]: !tagSectionsExpanded[key]
-    })
-  }
-
-  const ignoreDuplicates = (): void => {
-    setDuplicateIgnored(true)
-    void window.api.setDuplicateWarningIgnored(folderPath, true)
-  }
 
   const ignoreArtistTitleTags = (): void => {
     setArtistTitleTagsIgnored(true)
@@ -197,35 +318,18 @@ export default function TagsField({
     void window.api.dismissWrongTagHint(folderPath, ruleId)
   }
 
-  const addPills = (items: string[], color: string, keyPrefix: string) =>
-    items.map((tag) => (
+  const patternPills = patternHints.map(({ tag, reason }) => (
+    <Tooltip key={`hint-${tag}`} label={reason}>
       <Badge
-        key={`${keyPrefix}-${tag}`}
-        className="mv-tag-chip"
+        className="mv-tag-suggestion-pill"
         variant="light"
-        color={color}
-        style={{ cursor: 'pointer' }}
+        color="violet"
         onClick={() => onChange(addTag(tags, tag))}
       >
         + {tag}
       </Badge>
-    ))
-
-  const patternPills =
-    patternHints.length > 0
-      ? patternHints.map(({ tag, reason }) => (
-          <Tooltip key={`hint-${tag}`} label={reason}>
-            <Badge
-              variant="light"
-              color="violet"
-              style={{ cursor: 'pointer' }}
-              onClick={() => onChange(addTag(tags, tag))}
-            >
-              + {tag}
-            </Badge>
-          </Tooltip>
-        ))
-      : null
+    </Tooltip>
+  ))
 
   const wrongTagPills =
     wrongTagSuggestions.length > 0
@@ -253,67 +357,238 @@ export default function TagsField({
         ))
       : null
 
+  const tagCategories = useMemo((): TagSuggestionCategory[] => {
+    const pills = (items: string[], color: string, keyPrefix: string) =>
+      items.map((tag) => (
+        <Badge
+          key={`${keyPrefix}-${tag}`}
+          className="mv-tag-suggestion-pill"
+          variant="light"
+          color={color}
+          onClick={() => onChange(addTag(tags, tag))}
+        >
+          + {tag}
+        </Badge>
+      ))
+
+    const rankedGenreLanguagePill = (
+      suggestion: GenreLanguageTagSuggestion,
+      color: string
+    ): JSX.Element => {
+      const setId = rankedTagSource?.beatmapSetId
+      const tooltipLabel =
+        setId != null ? (
+          <RankedSetTooltipLabel
+            beatmapSetId={setId}
+            variant={suggestion.source === 'beatmap_page' ? 'page' : 'tags'}
+          />
+        ) : suggestion.source === 'beatmap_page' ? (
+          'From the page'
+        ) : (
+          'From the set'
+        )
+
+      return (
+        <Tooltip
+          key={`${suggestion.source}-${suggestion.tag}`}
+          label={tooltipLabel}
+          closeDelay={300}
+          classNames={{ tooltip: 'mv-tag-tooltip' }}
+        >
+          <Badge
+            className={`mv-tag-suggestion-pill${suggestion.source === 'beatmap_page' ? ' mv-tag-suggestion-pill--page' : ''}`}
+            variant={suggestion.source === 'beatmap_page' ? 'outline' : 'light'}
+            color={color}
+            onClick={() => onChange(addTag(tags, suggestion.tag))}
+          >
+            + {suggestion.tag}
+          </Badge>
+        </Tooltip>
+      )
+    }
+
+    const guestContent = (
+      <>
+        {apiCurrentGuestTags.map(({ mapperUsername, tag }) => (
+          <Tooltip key={`api-current-${mapperUsername}-${tag}`} label={`Guest · ${mapperUsername}`}>
+            <Badge
+              className="mv-tag-suggestion-pill"
+              variant="light"
+              color="blue"
+              onClick={() => onChange(addTag(tags, tag))}
+            >
+              + {tag}
+            </Badge>
+          </Tooltip>
+        ))}
+        {apiPreviousGuestTags.map(({ mapperUsername, tag }) => (
+          <Tooltip key={`api-prev-${mapperUsername}-${tag}`} label={`Old username · ${mapperUsername}`}>
+            <Badge
+              className="mv-tag-suggestion-pill"
+              variant="light"
+              color="grape"
+              onClick={() => onChange(addTag(tags, tag))}
+            >
+              + {tag}
+            </Badge>
+          </Tooltip>
+        ))}
+      </>
+    )
+
+    return [
+      {
+        key: 'featured',
+        label: 'Featured',
+        description: 'Featured artist tags expected on osu! FA maps.',
+        suggestionCount: featuredArtistTags.length,
+        visible: showFeaturedSection,
+        chipColor: 'yellow',
+        content: pills(featuredArtistTags, 'yellow', 'fa')
+      },
+      {
+        key: 'source',
+        label: 'Source',
+        description: 'Tags commonly inferred from the title, folder, or source field.',
+        suggestionCount: patternHints.length,
+        visible: showSourceSection,
+        chipColor: 'violet',
+        content: patternPills
+      },
+      {
+        key: 'language',
+        label: 'Language',
+        description: 'From the latest ranked set on osu!.',
+        suggestionCount: visibleLanguageTags.length,
+        loading: rankedTagsLoading,
+        visible: showLanguageSection,
+        chipColor: 'teal',
+        content: visibleLanguageTags.map((suggestion) =>
+          rankedGenreLanguagePill(suggestion, 'teal')
+        )
+      },
+      {
+        key: 'genre',
+        label: 'Genre',
+        description: 'From the latest ranked set on osu!.',
+        suggestionCount: visibleGenreTags.length,
+        loading: rankedTagsLoading,
+        visible: showGenreSection,
+        chipColor: 'grape',
+        content: visibleGenreTags.map((suggestion) =>
+          rankedGenreLanguagePill(suggestion, 'grape')
+        )
+      },
+      {
+        key: 'guest',
+        label: 'Guests',
+        description: 'Guest mapper tags from osu! for difficulties on this set.',
+        suggestionCount: visibleGuestSuggestions.length,
+        loading: apiGuestLoading,
+        visible: showGuestSection,
+        chipColor: 'blue',
+        content: guestContent
+      },
+      {
+        key: 'collab',
+        label: 'Aliases',
+        description: 'your old usernames from your latest ranked set/ GD.',
+        suggestionCount: visibleHostAlternateSuggestions.length,
+        loading: hostAlternateLoading,
+        visible: showCollabSection,
+        chipColor: 'cyan',
+        content: visibleHostAlternateSuggestions.map((suggestion) => (
+          <Tooltip
+            key={`host-alt-${suggestion.previousUsername}-${suggestion.tag}`}
+            label={
+              <RankedSetTooltipLabel
+                beatmapSetId={suggestion.sourceBeatmapSetId}
+                variant="gd"
+              />
+            }
+            closeDelay={300}
+            classNames={{ tooltip: 'mv-tag-tooltip' }}
+          >
+            <Badge
+              className="mv-tag-suggestion-pill"
+              variant="light"
+              color="cyan"
+              onClick={() => onChange(addTag(tags, suggestion.tag))}
+            >
+              + {suggestion.tag}
+            </Badge>
+          </Tooltip>
+        ))
+      },
+      {
+        key: 'guild',
+        label: 'Guild',
+        description: 'Mappers Guild quest tags for featured artist sets.',
+        suggestionCount: mappersGuildTags.length,
+        visible: showGuildSection,
+        chipColor: 'blue',
+        content: pills(mappersGuildTags, 'blue', 'guild')
+      },
+      {
+        key: 'wrongTags',
+        label: 'Warnings',
+        description: 'Tags that may be incorrect or discouraged for this map.',
+        suggestionCount: wrongTagSuggestions.length,
+        visible: showWrongTagsSection,
+        chipColor: 'orange',
+        content: wrongTagPills
+      }
+    ]
+  }, [
+    apiCurrentGuestTags,
+    apiPreviousGuestTags,
+    apiGuestLoading,
+    featuredArtistTags,
+    hostAlternateLoading,
+    mappersGuildTags,
+    onChange,
+    patternHints.length,
+    patternPills,
+    rankedTagSource,
+    rankedTagsLoading,
+    showCollabSection,
+    showFeaturedSection,
+    showGenreSection,
+    showGuestSection,
+    showGuildSection,
+    showLanguageSection,
+    showSourceSection,
+    showWrongTagsSection,
+    tags,
+    visibleGenreTags,
+    visibleGuestSuggestions.length,
+    visibleHostAlternateSuggestions,
+    visibleLanguageTags,
+    wrongTagPills,
+    wrongTagSuggestions.length
+  ])
+
   return (
     <Box>
       <Text size="xs" c="dimmed" mb={4}>
         Tags
       </Text>
 
-      {featuredArtistTags.length > 0 && (
-        <CollapsibleTagSection
-          sectionKey="featured"
-          label="Suggested tags (featured artist)"
-          expanded={tagSectionsExpanded.featured}
-          onToggle={toggleSection}
-        >
-          {addPills(featuredArtistTags, 'yellow', 'fa')}
-        </CollapsibleTagSection>
-      )}
+      <Textarea
+        value={tags}
+        onChange={(e) => onChange(e.currentTarget.value)}
+        minRows={3}
+        autosize
+        mb="sm"
+      />
 
-      <CollapsibleTagSection
-        sectionKey="source"
-        label="Suggested tags (source / title)"
-        expanded={tagSectionsExpanded.source}
-        onToggle={toggleSection}
-      >
-        {patternPills}
-      </CollapsibleTagSection>
-
-      <CollapsibleTagSection
-        sectionKey="guest"
-        label="Suggested tags (guest mappers)"
-        expanded={tagSectionsExpanded.guest}
-        onToggle={toggleSection}
-      >
-        {guestMapperTags.length > 0 ? addPills(guestMapperTags, 'blue', 'guest') : null}
-      </CollapsibleTagSection>
-
-      <CollapsibleTagSection
-        sectionKey="collab"
-        label="Suggested tags (collabs)"
-        expanded={tagSectionsExpanded.collab}
-        onToggle={toggleSection}
-      >
-        {collabTags.length > 0 ? addPills(collabTags, 'cyan', 'collab') : null}
-      </CollapsibleTagSection>
-
-      <CollapsibleTagSection
-        sectionKey="guild"
-        label="If this map is for a mappers' guild quest, add also these:"
-        expanded={tagSectionsExpanded.guild}
-        onToggle={toggleSection}
-      >
-        {mappersGuildTags.length > 0 ? addPills(mappersGuildTags, 'blue', 'guild') : null}
-      </CollapsibleTagSection>
-
-      <CollapsibleTagSection
-        sectionKey="wrongTags"
-        label="Tags that may not fit this track"
-        expanded={tagSectionsExpanded.wrongTags}
-        onToggle={toggleSection}
-      >
-        {wrongTagPills}
-      </CollapsibleTagSection>
+      <TagSuggestionsPanel
+        categories={tagCategories}
+        panelOpen={tagSuggestionsOpen}
+        onPanelOpenChange={setTagSuggestionsOpen}
+        activeKey={activeTagCategory}
+        onActiveKeyChange={setActiveTagCategory}
+      />
 
       {showArtistTitleTagUi && (
         <Alert icon={<IconAlertTriangle />} color="orange" variant="light" mb="xs">
@@ -334,76 +609,6 @@ export default function TagsField({
             </Group>
           </Group>
         </Alert>
-      )}
-
-      <Textarea
-        value={tags}
-        onChange={(e) => onChange(e.currentTarget.value)}
-        minRows={3}
-        autosize
-      />
-
-      {showDuplicateUi && (
-        <Box mt="xs">
-          <UnstyledButton
-            onClick={() => setDuplicatesOpen((open) => !open)}
-            style={{ width: '100%', textAlign: 'left' }}
-          >
-            <Alert icon={<IconAlertTriangle />} color="red" variant="light" style={{ cursor: 'pointer' }}>
-              <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
-                <Group gap={6} wrap="nowrap" style={{ flex: 1, minWidth: 0 }}>
-                  {duplicatesOpen ? (
-                    <IconChevronDown size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-                  ) : (
-                    <IconChevronRight size={16} style={{ flexShrink: 0, marginTop: 2 }} />
-                  )}
-                  <Text size="sm" style={{ flex: 1 }}>
-                    {duplicatesOpen
-                      ? 'Click × on a duplicate to remove it, or ignore if intentional.'
-                      : 'There are duplicated tags. Click to review and remove them.'}
-                  </Text>
-                </Group>
-                <Button
-                  variant="subtle"
-                  color="red"
-                  size="compact-sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    ignoreDuplicates()
-                  }}
-                >
-                  Ignore
-                </Button>
-              </Group>
-            </Alert>
-          </UnstyledButton>
-
-          <Collapse in={duplicatesOpen}>
-            <Group gap={6} mt="xs">
-              {duplicateOccurrences.map(({ tag, index }) => (
-                <Badge
-                  key={`${tag}-${index}`}
-                  variant="light"
-                  color="red"
-                  pr={3}
-                  rightSection={
-                    <ActionIcon
-                      size="xs"
-                      color="red"
-                      variant="transparent"
-                      aria-label={`Remove duplicate tag ${tag}`}
-                      onClick={() => onChange(removeTagAtIndex(tags, index))}
-                    >
-                      <IconX size={12} />
-                    </ActionIcon>
-                  }
-                >
-                  {tag}
-                </Badge>
-              ))}
-            </Group>
-          </Collapse>
-        </Box>
       )}
 
       {wrongTagSuggestions.length > 0 && (
