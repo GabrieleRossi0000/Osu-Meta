@@ -148,8 +148,11 @@ function MainScreen({
   osuRunning: boolean
 }): JSX.Element {
   const theme = useMantineTheme()
-  const [navbarOpened, { toggle: toggleNavbar, close: closeNavbar }] = useDisclosure(true)
-  const isNavbarMobile = useMediaQuery(`(max-width: ${theme.breakpoints.xs})`)
+  const isNavbarMobile = useMediaQuery(`(max-width: ${theme.breakpoints.xs})`, false, {
+    getInitialValueInEffect: false
+  })
+  const [navbarOpened, { toggle: toggleNavbar, close: closeNavbar, open: openNavbar }] =
+    useDisclosure(true)
   const [beatmaps, setBeatmaps] = useState<BeatmapSetSummary[]>([])
   const [selected, setSelected] = useState<BeatmapSetSummary | null>(null)
   const [editorDirty, setEditorDirty] = useState(false)
@@ -195,6 +198,12 @@ function MainScreen({
       setSidebarWidth(settings.sidebarWidth)
     })
   }, [])
+
+  useEffect(() => {
+    if (!isNavbarMobile) return
+    if (selected) closeNavbar()
+    else openNavbar()
+  }, [isNavbarMobile, selected?.folderPath, closeNavbar, openNavbar])
 
   useEffect(() => {
     void window.api.setCloseBlocked(editorDirty)
