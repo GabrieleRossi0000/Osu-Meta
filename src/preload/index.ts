@@ -3,6 +3,7 @@ import { electronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
   BeatmapMetadata,
+  BeatmapDifficultySummary,
   BeatmapSetSummary,
   CurrentBeatmapLookupResult,
   DetectedPath,
@@ -32,6 +33,8 @@ const api = {
     ipcRenderer.invoke('scan-beatmaps', force),
   loadMetadata: (folderPath: string): Promise<LoadedMetadata> =>
     ipcRenderer.invoke('load-metadata', folderPath),
+  loadDifficultySummaries: (folderPath: string): Promise<BeatmapDifficultySummary[]> =>
+    ipcRenderer.invoke('load-difficulty-summaries', folderPath),
   loadMetadataFromBeatmapSet: (beatmapSetId: number): Promise<BeatmapMetadata> =>
     ipcRenderer.invoke('load-metadata-from-beatmap-set', beatmapSetId),
   loadImportSourceFromBeatmapSet: (beatmapSetId: number): Promise<ImportSourceData> =>

@@ -5,6 +5,7 @@ import { lookupCurrentBeatmap } from './current-beatmap'
 import { coerceSaveMetadataPayload } from '../shared/metadata-utils'
 import {
   loadSetMetadata,
+  loadDifficultySummaries,
   loadImportSourceFromBeatmapSetId,
   loadMetadataFromBeatmapSetId,
   saveSetMetadata
@@ -93,6 +94,10 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('load-metadata', async (_event, folderPath: string) => {
     return loadSetMetadata(folderPath)
+  })
+
+  ipcMain.handle('load-difficulty-summaries', (_event, folderPath: string) => {
+    return loadDifficultySummaries(folderPath)
   })
 
   ipcMain.handle('load-metadata-from-beatmap-set', async (_event, beatmapSetId: number) => {

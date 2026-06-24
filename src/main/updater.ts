@@ -11,7 +11,7 @@ import {
   showUpdaterDialog
 } from './updater-dialog'
 
-const GITHUB_OWNER = 'GabrieleRossi0000'
+const GITHUB_OWNER = 'leledorf'
 const GITHUB_REPO = 'Osu-Meta'
 const RELEASES_URL = `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`
 const SETUP_ASSET_RE = /^OsuMeta-[\d.]+-setup\.exe$/i

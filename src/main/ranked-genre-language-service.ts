@@ -3,6 +3,7 @@ import {
   extractGenreLanguageTagsFromTagString
 } from '../shared/genre-language-tags'
 import {
+  buildSourceSuggestionCacheKey,
   isRankedStatus,
   metadataMatchesCandidate,
   stripTitleVersionMarkers,
@@ -15,19 +16,35 @@ import type {
   RankedGenreLanguageSuggestion,
   SuggestRankedGenreLanguageRequest
 } from '../shared/types'
-import { downloadBeatmapOsuText } from './osu-beatmap-download'
 import {
   fetchBeatmapsetFromApi,
-  fetchFirstBeatmapIdFromSet,
   isOsuApiConfigured,
   searchRankedBeatmapsetsByMetadata
 } from './osu-api-client'
-import { readGenreFromContent, readLanguageFromContent, readMetadataFromContent } from './osu-file'
 import {
   fetchBeatmapsetFromWebPage,
   toSourceMatchCandidate,
   webBeatmapsetGenreLanguage
 } from './osu-beatmapset-web'
+import {
+  getGenreLanguageSuggestionCached,
+  setGenreLanguageSuggestionCached
+} from './settings'
+
+const TAG_CONTEXT_CACHE_TTL_MS = 15 * 60 * 1000
+
+interface TagContext {
+  tags: string
+  genre: string
+  language: string
+}
+
+interface CacheEntry<T> {
+  expiresAt: number
+  value: T
+}
+
+const tagContextCache = new Map<number, CacheEntry<TagContext>>()
 
 function artistForSearch(query: SourceMatchQuery): string {
   return query.artistUnicode.trim() || query.artist.trim()
@@ -66,50 +83,70 @@ function pickLatestRankedMatch(
   return [...matches].sort((a, b) => rankedDateMs(b) - rankedDateMs(a))[0] ?? null
 }
 
+function buildGenreLanguageCacheKey(request: SuggestRankedGenreLanguageRequest): string {
+  const base = buildSourceSuggestionCacheKey({
+    artistUnicode: request.artistUnicode,
+    artist: request.artist,
+    titleUnicode: request.titleUnicode,
+    title: request.title
+  })
+  return `${base}::${request.beatmapSetId ?? 0}`
+}
+
 async function loadCandidateFromSetId(
   beatmapSetId: number
-): Promise<(SourceMatchCandidate & { tags?: string }) | null> {
+): Promise<SourceMatchCandidate | null> {
+  if (isOsuApiConfigured()) {
+    const fromApi = await fetchBeatmapsetFromApi(beatmapSetId)
+    if (fromApi) return fromApi
+  }
+
   const fromWeb = await fetchBeatmapsetFromWebPage(beatmapSetId)
   if (fromWeb) return toSourceMatchCandidate(fromWeb)
-
-  if (isOsuApiConfigured()) {
-    return fetchBeatmapsetFromApi(beatmapSetId)
-  }
 
   return null
 }
 
-async function loadRankedSetTagContext(
-  beatmapSetId: number
-): Promise<{ tags: string; genre: string; language: string }> {
-  const fromApi = await fetchBeatmapsetFromApi(beatmapSetId)
+function readTagContextCache(beatmapSetId: number): TagContext | undefined {
+  const entry = tagContextCache.get(beatmapSetId)
+  if (!entry) return undefined
+  if (entry.expiresAt <= Date.now()) {
+    tagContextCache.delete(beatmapSetId)
+    return undefined
+  }
+  return entry.value
+}
+
+function writeTagContextCache(beatmapSetId: number, value: TagContext): void {
+  tagContextCache.set(beatmapSetId, {
+    expiresAt: Date.now() + TAG_CONTEXT_CACHE_TTL_MS,
+    value
+  })
+}
+
+async function loadRankedSetTagContext(beatmapSetId: number): Promise<TagContext> {
+  const cached = readTagContextCache(beatmapSetId)
+  if (cached) return cached
+
+  const [fromApi, fromWeb] = await Promise.all([
+    isOsuApiConfigured() ? fetchBeatmapsetFromApi(beatmapSetId) : Promise.resolve(null),
+    fetchBeatmapsetFromWebPage(beatmapSetId)
+  ])
+
   let tags = fromApi?.tags?.trim() ?? ''
   let genre = fromApi?.genre?.trim() ?? ''
   let language = fromApi?.language?.trim() ?? ''
 
-  if (!tags || !genre || !language) {
-    const fromWeb = await fetchBeatmapsetFromWebPage(beatmapSetId)
-    if (fromWeb) {
-      if (!tags) tags = fromWeb.tags?.trim() ?? ''
-      const webGenreLanguage = webBeatmapsetGenreLanguage(fromWeb)
-      if (!genre) genre = webGenreLanguage.genre
-      if (!language) language = webGenreLanguage.language
-    }
+  if (fromWeb) {
+    if (!tags) tags = fromWeb.tags?.trim() ?? ''
+    const webGenreLanguage = webBeatmapsetGenreLanguage(fromWeb)
+    if (!genre) genre = webGenreLanguage.genre
+    if (!language) language = webGenreLanguage.language
   }
 
-  if (!tags || !genre || !language) {
-    const beatmapId = await fetchFirstBeatmapIdFromSet(beatmapSetId)
-    if (beatmapId != null) {
-      const osuText = await downloadBeatmapOsuText(beatmapId)
-      if (osuText) {
-        if (!tags) tags = readMetadataFromContent(osuText).tags
-        if (!genre) genre = readGenreFromContent(osuText)
-        if (!language) language = readLanguageFromContent(osuText)
-      }
-    }
-  }
-
-  return { tags, genre, language }
+  const result = { tags, genre, language }
+  writeTagContextCache(beatmapSetId, result)
+  return result
 }
 
 function toSuggestion(
@@ -133,9 +170,27 @@ function toSuggestion(
   }
 }
 
+function cacheableResult(result: RankedGenreLanguageResult): boolean {
+  return result.kind === 'found' || result.kind === 'not_found' || result.kind === 'unavailable'
+}
+
 export async function suggestRankedGenreLanguage(
   request: SuggestRankedGenreLanguageRequest
 ): Promise<RankedGenreLanguageResult> {
+  const cacheKey = buildGenreLanguageCacheKey(request)
+  const cached = getGenreLanguageSuggestionCached(cacheKey)
+  if (cached) {
+    const mayRetryWithoutMarkers =
+      cached.kind === 'not_found' &&
+      titleHasVersionMarkers(titleForSearch({
+        artistUnicode: request.artistUnicode,
+        artist: request.artist,
+        titleUnicode: request.titleUnicode,
+        title: request.title
+      }))
+    if (!mayRetryWithoutMarkers) return cached
+  }
+
   const query: SourceMatchQuery = {
     artistUnicode: request.artistUnicode,
     artist: request.artist,
@@ -146,14 +201,25 @@ export async function suggestRankedGenreLanguage(
   const artist = artistForSearch(query)
   const title = titleForSearch(query)
   if (!artist || !title) {
-    return { kind: 'unavailable', message: 'Artist and title are required.' }
+    const result: RankedGenreLanguageResult = {
+      kind: 'unavailable',
+      message: 'Artist and title are required.'
+    }
+    setGenreLanguageSuggestionCached(cacheKey, result)
+    return result
   }
 
   const candidates: SourceMatchCandidate[] = []
+  let best: SourceMatchCandidate | null = null
 
   if (request.beatmapSetId != null && request.beatmapSetId > 0) {
     const direct = await loadCandidateFromSetId(request.beatmapSetId)
-    if (direct) candidates.push(direct)
+    if (direct) {
+      candidates.push(direct)
+      if (metadataMatchesCandidate(query, direct) && isRankedStatus(direct.status)) {
+        best = direct
+      }
+    }
   }
 
   async function searchAndCollect(searchTitle: string): Promise<void> {
@@ -166,34 +232,45 @@ export async function suggestRankedGenreLanguage(
     }
   }
 
-  await searchAndCollect(title)
+  if (!best) {
+    await searchAndCollect(title)
 
-  let uniqueCandidates = dedupeCandidates(candidates)
-  let best = pickLatestRankedMatch(query, uniqueCandidates)
+    let uniqueCandidates = dedupeCandidates(candidates)
+    best = pickLatestRankedMatch(query, uniqueCandidates)
 
-  if (!best && titleHasVersionMarkers(title)) {
-    const strippedTitle = stripTitleVersionMarkers(title)
-    if (strippedTitle) {
-      await searchAndCollect(strippedTitle)
-      uniqueCandidates = dedupeCandidates(candidates)
-      best = pickLatestRankedMatch(query, uniqueCandidates)
+    if (!best && titleHasVersionMarkers(title)) {
+      const strippedTitle = stripTitleVersionMarkers(title)
+      if (strippedTitle) {
+        await searchAndCollect(strippedTitle)
+        uniqueCandidates = dedupeCandidates(candidates)
+        best = pickLatestRankedMatch(query, uniqueCandidates)
+      }
     }
   }
 
+  let result: RankedGenreLanguageResult
+
   if (!best) {
-    if (!isOsuApiConfigured() && uniqueCandidates.length === 0) {
-      return {
+    if (!isOsuApiConfigured() && candidates.length === 0) {
+      result = {
         kind: 'unavailable',
         message: 'Could not look up ranked sets on osu!.'
       }
+    } else {
+      result = { kind: 'not_found' }
     }
-    return { kind: 'not_found' }
+  } else {
+    const { tags: rankedTags, genre: pageGenre, language: pageLanguage } =
+      await loadRankedSetTagContext(best.beatmapSetId)
+    result = {
+      kind: 'found',
+      suggestion: toSuggestion(best, rankedTags, pageGenre, pageLanguage)
+    }
   }
 
-  const { tags: rankedTags, genre: pageGenre, language: pageLanguage } =
-    await loadRankedSetTagContext(best.beatmapSetId)
-  return {
-    kind: 'found',
-    suggestion: toSuggestion(best, rankedTags, pageGenre, pageLanguage)
+  if (cacheableResult(result)) {
+    setGenreLanguageSuggestionCached(cacheKey, result)
   }
+
+  return result
 }

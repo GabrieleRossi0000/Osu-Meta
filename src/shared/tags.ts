@@ -108,33 +108,6 @@ function normalizeTagMatchValue(value: string): string {
     .trim()
 }
 
-const MIN_METADATA_WORD_LEN = 2
-const MIN_METADATA_COPY_SEQUENCE_LEN = 2
-
-/** Conjunctions allowed alone, but flagged when copied as part of artist/title/source. */
-const METADATA_CONJUNCTION_WORDS = new Set([
-  'a',
-  'an',
-  'and',
-  'or',
-  'the',
-  'of',
-  'in',
-  'on',
-  'at',
-  'to',
-  'for',
-  'with',
-  'by',
-  'from',
-  'as',
-  'but',
-  'nor',
-  'so',
-  'yet',
-  'vs'
-])
-
 /** osu! edition marker tag; allowed even when title/artist contain the same words. */
 const GAME_VER_TAG = 'game ver'
 
@@ -142,144 +115,104 @@ function isGameVerTag(tag: string): boolean {
   return normalizeTagMatchValue(tag) === GAME_VER_TAG
 }
 
-function metadataFullStringValues(
-  artistUnicode: string,
-  artist: string,
-  titleUnicode: string,
-  title: string,
-  source: string
-): Set<string> {
-  const values = new Set<string>()
+function distinctMetadataPhrases(values: string[]): string[] {
+  const seen = new Set<string>()
+  const phrases: string[] = []
 
-  for (const value of [artistUnicode, artist, titleUnicode, title, source]) {
-    const normalized = normalizeTagMatchValue(value)
-    if (normalized) values.add(normalized)
+  for (const value of values) {
+    const trimmed = value.trim()
+    if (!trimmed) continue
+    const normalized = normalizeTagMatchValue(trimmed)
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    phrases.push(trimmed)
   }
 
-  return values
+  return phrases
 }
 
-function metadataStandaloneWordValues(
-  artistUnicode: string,
-  artist: string,
-  titleUnicode: string,
-  title: string,
-  source: string
-): Set<string> {
-  const values = new Set<string>()
+/** Indices of tags that form a complete copy of the given metadata phrase. */
+function indicesForFullPhraseInTags(tags: string, phrase: string): number[] {
+  const list = parseTagList(tags)
+  if (list.length === 0) return []
 
-  for (const value of [artistUnicode, artist, titleUnicode, title, source]) {
-    const normalized = normalizeTagMatchValue(value)
-    if (!normalized) continue
+  const normalizedPhrase = normalizeTagMatchValue(phrase)
+  if (!normalizedPhrase) return []
 
-    for (const word of normalized.split(' ')) {
-      if (word.length < MIN_METADATA_WORD_LEN) continue
-      if (METADATA_CONJUNCTION_WORDS.has(word)) continue
-      values.add(word)
-    }
-  }
+  const phraseWords = normalizedPhrase.split(' ').filter((word) => word.length > 0)
+  const normalizedTags = list.map((tag, index) => ({
+    index,
+    normalized: normalizeTagMatchValue(tag)
+  }))
 
-  return values
-}
-
-function metadataWordLists(
-  artistUnicode: string,
-  artist: string,
-  titleUnicode: string,
-  title: string,
-  source: string
-): string[][] {
-  const lists: string[][] = []
-
-  for (const value of [artistUnicode, artist, titleUnicode, title, source]) {
-    const normalized = normalizeTagMatchValue(value)
-    if (!normalized) continue
-
-    const words = normalized.split(' ').filter((word) => word.length > 0)
-    if (words.length >= MIN_METADATA_COPY_SEQUENCE_LEN) lists.push(words)
-  }
-
-  return lists
-}
-
-function findContiguousMetadataCopyIndices(
-  normalizedTags: string[],
-  metadataWordLists: string[][]
-): Set<number> {
   const indices = new Set<number>()
 
-  for (const metadataWords of metadataWordLists) {
-    for (let tagStart = 0; tagStart < normalizedTags.length; tagStart++) {
-      for (let metaStart = 0; metaStart < metadataWords.length; metaStart++) {
-        let matchLen = 0
-        while (
-          tagStart + matchLen < normalizedTags.length &&
-          metaStart + matchLen < metadataWords.length &&
-          normalizedTags[tagStart + matchLen] === metadataWords[metaStart + matchLen]
-        ) {
-          matchLen++
-        }
+  for (const { index, normalized } of normalizedTags) {
+    if (!normalized || isGameVerTag(list[index]!)) continue
+    if (normalized === normalizedPhrase) indices.add(index)
+  }
 
-        if (matchLen >= MIN_METADATA_COPY_SEQUENCE_LEN) {
-          for (let index = tagStart; index < tagStart + matchLen; index++) {
-            indices.add(index)
-          }
+  if (phraseWords.length > 1) {
+    const tagWords = normalizedTags.map((entry) => entry.normalized)
+    for (let start = 0; start <= tagWords.length - phraseWords.length; start++) {
+      let matches = true
+      for (let offset = 0; offset < phraseWords.length; offset++) {
+        if (tagWords[start + offset] !== phraseWords[offset]) {
+          matches = false
+          break
         }
+      }
+      if (!matches) continue
+      for (let offset = 0; offset < phraseWords.length; offset++) {
+        const index = normalizedTags[start + offset]!.index
+        if (!isGameVerTag(list[index]!)) indices.add(index)
       }
     }
   }
 
-  return indices
+  return [...indices].sort((a, b) => a - b)
 }
 
-function tagSliceMatchesMetadata(
-  slice: string[],
-  metadataWords: string[],
-  metaStart: number
-): boolean {
-  if (slice.length < MIN_METADATA_COPY_SEQUENCE_LEN) return false
-  if (metaStart + slice.length > metadataWords.length) return false
-
-  for (let offset = 0; offset < slice.length; offset++) {
-    if (slice[offset] !== metadataWords[metaStart + offset]) return false
-  }
-
-  return true
+export function tagsContainFullPhrase(tags: string, phrase: string): boolean {
+  return indicesForFullPhraseInTags(tags, phrase).length > 0
 }
 
-function tagSliceMatchesAnyMetadata(slice: string[], metadataWordLists: string[][]): boolean {
-  if (slice.length < MIN_METADATA_COPY_SEQUENCE_LEN) return false
+export type FullMetadataInTagsField = 'artist' | 'title' | 'source'
 
-  for (const metadataWords of metadataWordLists) {
-    for (let metaStart = 0; metaStart < metadataWords.length; metaStart++) {
-      if (tagSliceMatchesMetadata(slice, metadataWords, metaStart)) return true
+export interface FullMetadataInTagsViolation {
+  field: FullMetadataInTagsField
+  matchedPhrase: string
+}
+
+export function getFullMetadataInTagsViolations(
+  tags: string,
+  artistUnicode: string,
+  artist: string,
+  titleUnicode: string,
+  title: string,
+  source: string
+): FullMetadataInTagsViolation[] {
+  const violations: FullMetadataInTagsViolation[] = []
+  const seenFields = new Set<FullMetadataInTagsField>()
+
+  const checks: Array<{ field: FullMetadataInTagsField; phrases: string[] }> = [
+    { field: 'artist', phrases: distinctMetadataPhrases([artistUnicode, artist]) },
+    { field: 'title', phrases: distinctMetadataPhrases([titleUnicode, title]) },
+    { field: 'source', phrases: distinctMetadataPhrases([source]) }
+  ]
+
+  for (const { field, phrases } of checks) {
+    if (seenFields.has(field)) continue
+    for (const phrase of phrases) {
+      if (tagsContainFullPhrase(tags, phrase)) {
+        violations.push({ field, matchedPhrase: phrase })
+        seenFields.add(field)
+        break
+      }
     }
   }
 
-  return false
-}
-
-/**
- * Album / search tags often share a word with the song title (e.g. title "no filter", tags "no antidote").
- * Skip standalone-word flags when this tag sits in a 2+ tag run that does not copy artist/title/source.
- */
-function isInIndependentMultiTagPhrase(
-  normalizedTags: string[],
-  index: number,
-  metadataWordLists: string[][]
-): boolean {
-  const maxPhraseLen = 6
-
-  for (let start = 0; start <= index; start++) {
-    const maxEnd = Math.min(normalizedTags.length, start + maxPhraseLen)
-    for (let end = start + MIN_METADATA_COPY_SEQUENCE_LEN; end <= maxEnd; end++) {
-      if (index < start || index >= end) continue
-      const slice = normalizedTags.slice(start, end)
-      if (!tagSliceMatchesAnyMetadata(slice, metadataWordLists)) return true
-    }
-  }
-
-  return false
+  return violations
 }
 
 function getMetadataTagViolationIndices(
@@ -290,46 +223,21 @@ function getMetadataTagViolationIndices(
   title: string,
   source: string
 ): Set<number> {
-  const list = parseTagList(tags)
-  if (list.length === 0) return new Set()
+  const indices = new Set<number>()
 
-  const normalizedTags = list.map((tag) => normalizeTagMatchValue(tag))
-  const fullStrings = metadataFullStringValues(artistUnicode, artist, titleUnicode, title, source)
-  const standaloneWords = metadataStandaloneWordValues(
-    artistUnicode,
-    artist,
-    titleUnicode,
-    title,
-    source
-  )
-  const wordLists = metadataWordLists(artistUnicode, artist, titleUnicode, title, source)
-  const copyIndices = findContiguousMetadataCopyIndices(normalizedTags, wordLists)
-
-  const violating = new Set<number>()
-
-  for (let index = 0; index < list.length; index++) {
-    if (isGameVerTag(list[index]!)) continue
-
-    const normalized = normalizedTags[index]!
-    if (!normalized) continue
-
-    if (fullStrings.has(normalized) || standaloneWords.has(normalized)) {
-      if (
-        standaloneWords.has(normalized) &&
-        isInIndependentMultiTagPhrase(normalizedTags, index, wordLists)
-      ) {
-        continue
+  for (const phrases of [
+    distinctMetadataPhrases([artistUnicode, artist]),
+    distinctMetadataPhrases([titleUnicode, title]),
+    distinctMetadataPhrases([source])
+  ]) {
+    for (const phrase of phrases) {
+      for (const index of indicesForFullPhraseInTags(tags, phrase)) {
+        indices.add(index)
       }
-      violating.add(index)
-      continue
-    }
-
-    if (copyIndices.has(index) && METADATA_CONJUNCTION_WORDS.has(normalized)) {
-      violating.add(index)
     }
   }
 
-  return violating
+  return indices
 }
 
 export function getArtistTitleTagOccurrences(

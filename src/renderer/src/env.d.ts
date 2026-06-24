@@ -3,6 +3,7 @@
 import type {
   AppSettings,
   BeatmapComboColour,
+  BeatmapDifficultySummary,
   BeatmapMetadata,
   BeatmapSetSummary,
   DetectedPath,
@@ -31,6 +32,7 @@ interface WindowApi {
   setSongsPath: (path: string) => Promise<string>
   scanBeatmaps: (force?: boolean) => Promise<BeatmapSetSummary[]>
   loadMetadata: (folderPath: string) => Promise<LoadedMetadata>
+  loadDifficultySummaries: (folderPath: string) => Promise<BeatmapDifficultySummary[]>
   loadMetadataFromBeatmapSet: (beatmapSetId: number) => Promise<BeatmapMetadata>
   loadImportSourceFromBeatmapSet: (beatmapSetId: number) => Promise<ImportSourceData>
   searchBeatmapsetsOnOsu: (query: string) => Promise<OsuBeatmapsetSearchHit[]>

@@ -1,6 +1,7 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 import type {
   AppSettings,
+  BeatmapDifficultySummary,
   BeatmapMetadata,
   BeatmapSetSummary,
   CurrentBeatmapLookupResult,
@@ -28,6 +29,7 @@ export interface OsuMetaAPI {
   setSongsPath: (path: string) => Promise<string>
   scanBeatmaps: (force?: boolean) => Promise<BeatmapSetSummary[]>
   loadMetadata: (folderPath: string) => Promise<LoadedMetadata>
+  loadDifficultySummaries: (folderPath: string) => Promise<BeatmapDifficultySummary[]>
   loadMetadataFromBeatmapSet: (beatmapSetId: number) => Promise<BeatmapMetadata>
   loadImportSourceFromBeatmapSet: (beatmapSetId: number) => Promise<ImportSourceData>
   searchBeatmapsetsOnOsu: (query: string) => Promise<OsuBeatmapsetSearchHit[]>

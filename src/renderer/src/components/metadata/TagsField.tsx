@@ -10,6 +10,7 @@ import {
   Tooltip
 } from '@mantine/core'
 import { IconAlertTriangle, IconX } from '@tabler/icons-react'
+import { useDebouncedValue } from '@mantine/hooks'
 import { useEffect, useMemo, useState } from 'react'
 import {
   getSuggestedFeaturedArtistTags,
@@ -125,12 +126,35 @@ export default function TagsField({
     title
   )
 
+  const [debouncedRankedLookup] = useDebouncedValue(
+    { artistUnicode, artist, titleUnicode, title, canLookupRankedTags },
+    500
+  )
+
+  const [tagsFieldFocused, setTagsFieldFocused] = useState(false)
+  const [tagSuggestionsOpen, setTagSuggestionsOpen] = useState(false)
+  const [activeTagCategory, setActiveTagCategory] = useState<keyof TagSectionsExpanded>('featured')
+
+  const shouldFetchRemoteSuggestions = tagSuggestionsOpen || tagsFieldFocused
+
+  useEffect(() => {
+    setTagSuggestionsOpen(false)
+    setActiveTagCategory('featured')
+    setTagsFieldFocused(false)
+  }, [folderPath])
+
   useEffect(() => {
     void window.api.isArtistTitleTagWarningIgnored(folderPath).then(setArtistTitleTagsIgnored)
     void window.api.getDismissedWrongTagHints(folderPath).then(setDismissedWrongIds)
   }, [folderPath])
 
   useEffect(() => {
+    if (!shouldFetchRemoteSuggestions) {
+      setApiGuestSuggestions([])
+      setApiGuestLoading(false)
+      return
+    }
+
     if (beatmapSetId == null || beatmapSetId <= 0) {
       setApiGuestSuggestions([])
       setApiGuestLoading(false)
@@ -155,9 +179,15 @@ export default function TagsField({
     return () => {
       cancelled = true
     }
-  }, [beatmapSetId])
+  }, [beatmapSetId, shouldFetchRemoteSuggestions])
 
   useEffect(() => {
+    if (!shouldFetchRemoteSuggestions) {
+      setHostAlternateSuggestions([])
+      setHostAlternateLoading(false)
+      return
+    }
+
     if (beatmapSetId == null || beatmapSetId <= 0) {
       setHostAlternateSuggestions([])
       setHostAlternateLoading(false)
@@ -182,10 +212,16 @@ export default function TagsField({
     return () => {
       cancelled = true
     }
-  }, [beatmapSetId])
+  }, [beatmapSetId, shouldFetchRemoteSuggestions])
 
   useEffect(() => {
-    if (!canLookupRankedTags) {
+    if (!shouldFetchRemoteSuggestions) {
+      setRankedTagSource(null)
+      setRankedTagsLoading(false)
+      return
+    }
+
+    if (!debouncedRankedLookup.canLookupRankedTags) {
       setRankedTagSource(null)
       setRankedTagsLoading(false)
       return
@@ -196,10 +232,10 @@ export default function TagsField({
 
     void window.api
       .suggestRankedGenreLanguage({
-        artistUnicode,
-        artist,
-        titleUnicode,
-        title,
+        artistUnicode: debouncedRankedLookup.artistUnicode,
+        artist: debouncedRankedLookup.artist,
+        titleUnicode: debouncedRankedLookup.titleUnicode,
+        title: debouncedRankedLookup.title,
         beatmapSetId
       })
       .then((result) => {
@@ -216,7 +252,11 @@ export default function TagsField({
     return () => {
       cancelled = true
     }
-  }, [canLookupRankedTags, artistUnicode, artist, titleUnicode, title, beatmapSetId])
+  }, [
+    shouldFetchRemoteSuggestions,
+    debouncedRankedLookup,
+    beatmapSetId
+  ])
 
   useEffect(() => {
     if (
@@ -288,14 +328,6 @@ export default function TagsField({
   const showCollabSection = beatmapSetId != null && beatmapSetId > 0
   const showGuildSection = suggestFeaturedArtistTags
   const showWrongTagsSection = wrongTagSuggestions.length > 0
-
-  const [tagSuggestionsOpen, setTagSuggestionsOpen] = useState(true)
-  const [activeTagCategory, setActiveTagCategory] = useState<keyof TagSectionsExpanded>('featured')
-
-  useEffect(() => {
-    setTagSuggestionsOpen(true)
-    setActiveTagCategory('featured')
-  }, [folderPath])
 
   const artistTitleTagOccurrences = useMemo(
     () => getArtistTitleTagOccurrences(tags, artistUnicode, artist, titleUnicode, title, source),
@@ -577,6 +609,8 @@ export default function TagsField({
       <Textarea
         value={tags}
         onChange={(e) => onChange(e.currentTarget.value)}
+        onFocus={() => setTagsFieldFocused(true)}
+        onBlur={() => setTagsFieldFocused(false)}
         minRows={3}
         autosize
         mb="sm"
@@ -591,19 +625,19 @@ export default function TagsField({
       />
 
       {showArtistTitleTagUi && (
-        <Alert icon={<IconAlertTriangle />} color="orange" variant="light" mb="xs">
+        <Alert icon={<IconAlertTriangle />} color="red" variant="light" mb="xs">
           <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
             <Text size="sm" style={{ flex: 1 }}>
-              Tags should not repeat artist, title, or source (
-              {artistTitleTagOccurrences.map(({ tag }) => tag).join(', ')}). Album names belong in
-              tags, not source — a phrase like &quot;no antidote&quot; is fine when the song title is
-              &quot;no filter&quot;.
+              Artist, title, and source must not appear in tags as a complete phrase (
+              {artistTitleTagOccurrences.map(({ tag }) => tag).join(', ')}). Partial words are fine
+              — for example, if the title is &quot;aura game&quot;, the tag &quot;aura&quot; is
+              allowed but &quot;aura game&quot; is not.
             </Text>
             <Group gap={6} wrap="nowrap">
-              <Button variant="subtle" color="orange" size="compact-sm" onClick={removeArtistTitleTagMatches}>
+              <Button variant="subtle" color="red" size="compact-sm" onClick={removeArtistTitleTagMatches}>
                 Remove tags
               </Button>
-              <Button variant="subtle" color="orange" size="compact-sm" onClick={ignoreArtistTitleTags}>
+              <Button variant="subtle" color="red" size="compact-sm" onClick={ignoreArtistTitleTags}>
                 Ignore
               </Button>
             </Group>

@@ -330,7 +330,7 @@ export default function MetadataEditor({
               {selected.beatmapSetId ?? 'unknown'}).
             </Text>
           )}
-          <DifficultyList difficulties={difficulties} />
+          <DifficultyList folderPath={selected.folderPath} diffCount={selected.diffCount} />
         </Stack>
       </Paper>
 

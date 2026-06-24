@@ -175,6 +175,7 @@ export interface AppSettings {
   featuredArtistCache: Record<string, boolean>
   beatmapSetOnlineCache: Record<string, boolean>
   sourceSuggestionCache: Record<string, RankedSourceSuggestionResult>
+  genreLanguageSuggestionCache: Record<string, RankedGenreLanguageResult>
 }
 
 export interface DetectedPath {

@@ -1,5 +1,5 @@
 import Store from 'electron-store'
-import type { AppSettings, RankedSourceSuggestionResult, ScanCache, TagSectionsExpanded } from '../shared/types'
+import type { AppSettings, RankedGenreLanguageResult, RankedSourceSuggestionResult, ScanCache, TagSectionsExpanded } from '../shared/types'
 
 const DEFAULT_TAG_SECTIONS: TagSectionsExpanded = {
   featured: true,
@@ -27,7 +27,8 @@ const store = new Store<AppSettings>({
     sidebarWidth: 256,
     featuredArtistCache: {},
     beatmapSetOnlineCache: {},
-    sourceSuggestionCache: {}
+    sourceSuggestionCache: {},
+    genreLanguageSuggestionCache: {}
   }
 })
 
@@ -41,7 +42,8 @@ export function getSettings(): AppSettings {
     sidebarWidth: store.get('sidebarWidth') ?? 256,
     featuredArtistCache: store.get('featuredArtistCache') ?? {},
     beatmapSetOnlineCache: store.get('beatmapSetOnlineCache') ?? {},
-    sourceSuggestionCache: store.get('sourceSuggestionCache') ?? {}
+    sourceSuggestionCache: store.get('sourceSuggestionCache') ?? {},
+    genreLanguageSuggestionCache: store.get('genreLanguageSuggestionCache') ?? {}
   }
 }
 
@@ -142,4 +144,20 @@ export function setSourceSuggestionCached(
   const cache = { ...(store.get('sourceSuggestionCache') ?? {}) }
   cache[cacheKey] = result
   store.set('sourceSuggestionCache', cache)
+}
+
+export function getGenreLanguageSuggestionCached(
+  cacheKey: string
+): RankedGenreLanguageResult | undefined {
+  const cache = store.get('genreLanguageSuggestionCache') ?? {}
+  return cache[cacheKey]
+}
+
+export function setGenreLanguageSuggestionCached(
+  cacheKey: string,
+  result: RankedGenreLanguageResult
+): void {
+  const cache = { ...(store.get('genreLanguageSuggestionCache') ?? {}) }
+  cache[cacheKey] = result
+  store.set('genreLanguageSuggestionCache', cache)
 }

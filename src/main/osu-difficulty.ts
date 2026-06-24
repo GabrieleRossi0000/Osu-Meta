@@ -27,12 +27,33 @@ function calculateStarRating(text: string, mode: number): number {
   }
 }
 
+function readDifficultyMode(text: string): number {
+  const mode = Number.parseInt(readField(text, 'Mode') || '0', 10)
+  return Number.isFinite(mode) ? mode : 0
+}
+
+/** Version and mode only — no PP calculation. */
+export function readDifficultySummaryLightFromText(
+  text: string,
+  filename: string
+): BeatmapDifficultySummary {
+  const mode = readDifficultyMode(text)
+  const version = readField(text, 'Version') || filename
+
+  return {
+    version,
+    mode,
+    starRating: 0,
+    iconUrl: '',
+    filename
+  }
+}
+
 export function readDifficultySummaryFromText(
   text: string,
   filename: string
 ): BeatmapDifficultySummary {
-
-  const mode = Number.parseInt(readField(text, 'Mode') || '0', 10)
+  const mode = readDifficultyMode(text)
   const version = readField(text, 'Version') || filename
   const starRating = calculateStarRating(text, mode)
 
@@ -43,6 +64,10 @@ export function readDifficultySummaryFromText(
     iconUrl: difficultyIconUrl(mode, starRating),
     filename
   }
+}
+
+export function readDifficultyModeFromText(text: string): number {
+  return readDifficultyMode(text)
 }
 
 export function readDifficultySummary(filePath: string): BeatmapDifficultySummary {

@@ -1,4 +1,5 @@
 import { isAlreadyRomanized } from './romanization'
+import { getFullMetadataInTagsViolations } from './tags'
 import type { BeatmapMetadata } from './types'
 
 export type ValidationSeverity = 'warning' | 'error'
@@ -8,6 +9,12 @@ export interface MetadataValidationIssue {
   message: string
   severity: ValidationSeverity
 }
+
+const FULL_METADATA_IN_TAGS_MESSAGES = {
+  artist: 'Artist cannot appear in tags.',
+  title: 'Title cannot appear in tags.',
+  source: 'Source cannot appear in tags.'
+} as const
 
 export function getMetadataValidationIssues(
   metadata: BeatmapMetadata,
@@ -28,6 +35,21 @@ export function getMetadataValidationIssues(
       id: 'combo-colours-mismatched',
       message: 'Difficulties in this set have different combo colours in [Colours].',
       severity: 'warning'
+    })
+  }
+
+  for (const violation of getFullMetadataInTagsViolations(
+    metadata.tags,
+    metadata.artistUnicode,
+    metadata.artist,
+    metadata.titleUnicode,
+    metadata.title,
+    metadata.source
+  )) {
+    issues.push({
+      id: `tags-contains-${violation.field}`,
+      message: FULL_METADATA_IN_TAGS_MESSAGES[violation.field],
+      severity: 'error'
     })
   }
 

@@ -16,6 +16,7 @@ import {
 } from '../shared/metadata-utils'
 import type {
   BeatmapMetadata,
+  BeatmapDifficultySummary,
   ImportSourceData,
   LoadedMetadata,
   SaveMetadataPayload,
@@ -35,7 +36,11 @@ import {
 } from '../shared/osu-game-mode'
 import { resolveBeatmapSetId } from '../shared/beatmap-set-id'
 import { basename } from 'path'
-import { readDifficultySummaryFromText } from './osu-difficulty'
+import {
+  readDifficultyModeFromText,
+  readDifficultySummaryFromText,
+  readDifficultySummaryLightFromText
+} from './osu-difficulty'
 import {
   readBeatmapSetIdFromContent,
   readComboColoursFromContent,
@@ -98,8 +103,8 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
     language: readLanguageFromContent(text)
   }))
   const difficulties = texts
-    .map((text, index) => readDifficultySummaryFromText(text, basename(osuFiles[index])))
-    .sort((a, b) => a.starRating - b.starRating || a.version.localeCompare(b.version))
+    .map((text, index) => readDifficultySummaryLightFromText(text, basename(osuFiles[index])))
+    .sort((a, b) => a.version.localeCompare(b.version))
   const creator = readMetadataFieldFromContent(texts[0], 'Creator')
   const beatmapSetId = readBeatmapSetIdFromContent(texts[0])
   const resolvedSetId = resolveBeatmapSetId({
@@ -130,6 +135,14 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
     isFeaturedArtist: osuInfo.isFeaturedArtist,
     isOnOsuWebsite: osuInfo.online
   }
+}
+
+export function loadDifficultySummaries(folderPath: string): BeatmapDifficultySummary[] {
+  const osuFiles = getOsuFilesInSet(folderPath)
+  const texts = osuFiles.map((filePath) => readOsuFileText(filePath))
+  return texts
+    .map((text, index) => readDifficultySummaryFromText(text, basename(osuFiles[index])))
+    .sort((a, b) => a.starRating - b.starRating || a.version.localeCompare(b.version))
 }
 
 async function loadMetadataFromBeatmapSetIdInternal(beatmapSetId: number): Promise<BeatmapMetadata> {
@@ -203,7 +216,7 @@ export function saveSetMetadata(
   const dirtyFields = getDirtyMetadataFields(normalized, save.savedMetadata)
   const comboDirty = !comboColoursEqual(save.comboColours, save.savedComboColours)
   const setGameModes = gameModesFromModeInts(
-    osuFiles.map((filePath) => readDifficultySummaryFromText(readOsuFileText(filePath), filePath).mode)
+    osuFiles.map((filePath) => readDifficultyModeFromText(readOsuFileText(filePath)))
   )
   const supportsComboColours = beatmapsetSupportsComboColours(setGameModes)
   const writeComboColours = comboDirty && supportsComboColours
