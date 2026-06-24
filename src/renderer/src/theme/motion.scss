@@ -10,10 +10,7 @@
   --mv-stagger-step: 40ms;
 }
 
-/* Clip panel slide so it does not cause horizontal scroll */
-.mv-app-main-panel {
-  overflow: hidden;
-}
+/* Clip panel slide so it does not cause horizontal scroll — see .mv-app-main-panel in global.scss */
 
 /* —— Ambient shell —— */
 .mv-app-main {

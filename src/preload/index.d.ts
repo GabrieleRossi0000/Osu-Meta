@@ -20,8 +20,17 @@ import type {
   SetOwnerAlternateTagSuggestion
 } from '../shared/types'
 import type { UpdaterDialogAction, UpdaterDialogPayload } from '../shared/updater-dialog'
+import type { WindowsResizeEdge } from '../shared/window-chrome'
+
+export interface TitleBarOverlayOptions {
+  color: string
+  symbolColor: string
+  height?: number
+}
 
 export interface OsuMetaAPI {
+  platform: NodeJS.Platform
+  usesNativeWindowControls: boolean
   getSettings: () => Promise<AppSettings>
   detectSongsPaths: () => Promise<DetectedPath[]>
   getDefaultSongsPath: () => Promise<string | null>
@@ -65,10 +74,13 @@ export interface OsuMetaAPI {
   suggestHostAlternateNameTags: (
     beatmapSetId: number
   ) => Promise<SetOwnerAlternateTagSuggestion[]>
+  setTitleBarOverlay: (options: TitleBarOverlayOptions) => Promise<void>
   window: {
     minimize: () => void
     toggleMaximize: () => void
     close: () => void
+    startResize: (edge: WindowsResizeEdge) => void
+    endResize: () => void
   }
 }
 

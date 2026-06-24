@@ -601,7 +601,7 @@ export default function TagsField({
   ])
 
   return (
-    <Box>
+    <Box className="mv-field-wrap">
       <Text size="xs" c="dimmed" mb={4}>
         Tags
       </Text>

@@ -19,6 +19,8 @@ import { suggestGuestMapperApiTags } from './guest-mapper-tag-service'
 import { suggestHostAlternateNameTags } from './host-mapper-tag-service'
 import { suggestRankedGenreLanguage } from './ranked-genre-language-service'
 import type { UpdaterDialogAction } from '../shared/updater-dialog'
+import { WINDOW_BAR_HEIGHT } from '../shared/window-chrome'
+import { registerWindowsWindowResizeHandlers } from './windows-window-resize'
 import { getCandidateSongsPaths, getFirstExistingSongsPath } from './osu-paths'
 import {
   dismissWrongTagHint,
@@ -45,6 +47,8 @@ import { isOsuApiConfigured, searchBeatmapsetsOnOsu } from './osu-api-client'
 const closeBlockedByRenderer = new WeakMap<BrowserWindow, boolean>()
 
 export function registerIpcHandlers(): void {
+  registerWindowsWindowResizeHandlers()
+
   ipcMain.handle('get-settings', () => getSettings())
 
   ipcMain.handle('detect-songs-paths', () => getCandidateSongsPaths())
@@ -251,6 +255,22 @@ export function registerIpcHandlers(): void {
     }
     win.close()
   })
+
+  ipcMain.handle(
+    'set-title-bar-overlay',
+    (
+      event,
+      options: { color: string; symbolColor: string; height?: number }
+    ) => {
+      const win = BrowserWindow.fromWebContents(event.sender)
+      if (!win || process.platform !== 'win32') return
+      win.setTitleBarOverlay({
+        color: options.color,
+        symbolColor: options.symbolColor,
+        height: options.height ?? WINDOW_BAR_HEIGHT
+      })
+    }
+  )
 
   app.on('browser-window-created', (_event, window) => {
     window.on('close', (e) => {

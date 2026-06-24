@@ -82,7 +82,7 @@ export default function SourceField({
     (sourceIsEmpty || !sourcesMatch(currentSource, suggestion.source))
 
   return (
-    <Box>
+    <Box className="mv-field-wrap">
       <Group justify="space-between" mb={4} gap="xs">
         <Text size="xs" c="dimmed">
           Source

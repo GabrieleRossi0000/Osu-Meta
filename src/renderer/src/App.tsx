@@ -17,7 +17,7 @@ import {
   useMantineTheme
 } from '@mantine/core'
 import { IconAlertTriangle } from '@tabler/icons-react'
-import { useDebouncedValue, useDisclosure } from '@mantine/hooks'
+import { useDebouncedValue, useDisclosure, useMediaQuery } from '@mantine/hooks'
 import { Notifications } from '@mantine/notifications'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { filterBeatmaps } from '@shared/filter-beatmaps'
@@ -32,6 +32,7 @@ import SettingsButton from './components/settings/SettingsButton'
 import UpToDatePill from './components/common/UpToDatePill'
 import UpdateModal from './components/settings/UpdateModal'
 import WindowBar from './components/window/WindowBar'
+import WindowResizeHandles from './components/window/WindowResizeHandles'
 import logoUrl from './assets/logo.png'
 import { theme } from './theme/Theme'
 import { modalClassNames, modalOverlayProps, modalTransitionProps } from './theme/modal'
@@ -147,7 +148,8 @@ function MainScreen({
   osuRunning: boolean
 }): JSX.Element {
   const theme = useMantineTheme()
-  const [desktopOpened, { toggle: toggleDesktop }] = useDisclosure(true)
+  const [navbarOpened, { toggle: toggleNavbar, close: closeNavbar }] = useDisclosure(true)
+  const isNavbarMobile = useMediaQuery(`(max-width: ${theme.breakpoints.xs})`)
   const [beatmaps, setBeatmaps] = useState<BeatmapSetSummary[]>([])
   const [selected, setSelected] = useState<BeatmapSetSummary | null>(null)
   const [editorDirty, setEditorDirty] = useState(false)
@@ -205,9 +207,13 @@ function MainScreen({
     })
   }, [editorDirty])
 
-  const selectBeatmap = useCallback((set: BeatmapSetSummary): void => {
-    setSelected(set)
-  }, [])
+  const selectBeatmap = useCallback(
+    (set: BeatmapSetSummary): void => {
+      setSelected(set)
+      if (isNavbarMobile) closeNavbar()
+    },
+    [closeNavbar, isNavbarMobile]
+  )
 
   const trySelectBeatmap = useCallback(
     (set: BeatmapSetSummary): void => {
@@ -370,7 +376,7 @@ function MainScreen({
         navbar={{
           width: sidebarWidth,
           breakpoint: 'xs',
-          collapsed: { desktop: !desktopOpened }
+          collapsed: { mobile: !navbarOpened, desktop: !navbarOpened }
         }}
         padding={0}
       >
@@ -384,7 +390,7 @@ function MainScreen({
           }}
         >
           <Group h={60} px="md" wrap="nowrap">
-            <Burger opened={desktopOpened} onClick={toggleDesktop} size="sm" />
+            <Burger opened={navbarOpened} onClick={toggleNavbar} size="sm" />
             <Text fw={600} size="sm" style={{ flex: 1, minWidth: 0 }}>
               Beatmap list
             </Text>
@@ -444,7 +450,7 @@ function MainScreen({
             type="always"
             h="calc(100vh - var(--app-shell-header-offset, 0rem) + var(--app-shell-padding))"
           >
-            <Container p="sm" fluid maw={720} className="mv-app-main-panel">
+            <Container p="sm" fluid className="mv-app-main-panel">
               {selected ? (
                 <div key={selected.folderPath} className="mv-beatmap-panel-enter">
                   <BeatmapWorkspace
@@ -570,6 +576,7 @@ export default function App(): JSX.Element {
       <UpToDatePill />
       <UpdateModal />
       <WindowBar osuRunning={osuRunning} />
+      <WindowResizeHandles />
       {loading ? (
         <Center h="100vh">
           <Loader color="primary" />

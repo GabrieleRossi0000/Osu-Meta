@@ -21,8 +21,17 @@ import type {
   SetOwnerAlternateTagSuggestion
 } from '../shared/types'
 import type { UpdaterDialogAction, UpdaterDialogPayload } from '../shared/updater-dialog'
+import type { WindowsResizeEdge } from '../shared/window-chrome'
+
+export interface TitleBarOverlayOptions {
+  color: string
+  symbolColor: string
+  height?: number
+}
 
 const api = {
+  platform: process.platform,
+  usesNativeWindowControls: process.platform === 'win32',
   getSettings: (): Promise<AppSettings> => ipcRenderer.invoke('get-settings'),
   detectSongsPaths: (): Promise<DetectedPath[]> => ipcRenderer.invoke('detect-songs-paths'),
   getDefaultSongsPath: (): Promise<string | null> => ipcRenderer.invoke('get-default-songs-path'),
@@ -105,10 +114,14 @@ const api = {
     beatmapSetId: number
   ): Promise<SetOwnerAlternateTagSuggestion[]> =>
     ipcRenderer.invoke('suggest-host-alternate-name-tags', beatmapSetId),
+  setTitleBarOverlay: (options: TitleBarOverlayOptions): Promise<void> =>
+    ipcRenderer.invoke('set-title-bar-overlay', options),
   window: {
     minimize: (): void => ipcRenderer.send('window-minimize'),
     toggleMaximize: (): void => ipcRenderer.send('window-toggle-maximize'),
-    close: (): void => ipcRenderer.send('window-close')
+    close: (): void => ipcRenderer.send('window-close'),
+    startResize: (edge: WindowsResizeEdge): void => ipcRenderer.send('window-resize-start', edge),
+    endResize: (): void => ipcRenderer.send('window-resize-end')
   }
 }
 

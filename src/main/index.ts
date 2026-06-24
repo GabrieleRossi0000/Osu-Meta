@@ -1,6 +1,11 @@
 import { app, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
+import {
+  WINDOW_BAR_HEIGHT,
+  WINDOWS_MIN_WINDOW_WIDTH,
+  WINDOWS_TITLE_BAR_OVERLAY
+} from '../shared/window-chrome'
 import { getAppIconPath } from './app-icon'
 import { registerIpcHandlers } from './ipc'
 import { initAutoUpdater } from './updater'
@@ -14,17 +19,29 @@ registerBeatmapProtocol()
 
 function createWindow(): void {
   const icon = getAppIconPath()
+  const isWindows = process.platform === 'win32'
 
   const mainWindow = new BrowserWindow({
     width: 1100,
     height: 720,
-    minWidth: 900,
+    minWidth: isWindows ? WINDOWS_MIN_WINDOW_WIDTH : 900,
     minHeight: 600,
     show: false,
-    frame: false,
     autoHideMenuBar: true,
+    resizable: true,
     title: 'Osu Meta',
     ...(icon ? { icon } : {}),
+    ...(isWindows
+      ? {
+          frame: true,
+          thickFrame: true,
+          titleBarStyle: 'hidden' as const,
+          titleBarOverlay: {
+            ...WINDOWS_TITLE_BAR_OVERLAY.dark,
+            height: WINDOW_BAR_HEIGHT
+          }
+        }
+      : { frame: false }),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,

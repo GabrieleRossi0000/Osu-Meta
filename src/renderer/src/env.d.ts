@@ -23,8 +23,11 @@ import type {
   SetOwnerAlternateTagSuggestion
 } from '@shared/types'
 import type { UpdaterDialogAction, UpdaterDialogPayload } from '@shared/updater-dialog'
+import type { WindowsResizeEdge } from '@shared/window-chrome'
 
 interface WindowApi {
+  platform: NodeJS.Platform
+  usesNativeWindowControls: boolean
   getSettings: () => Promise<AppSettings>
   detectSongsPaths: () => Promise<DetectedPath[]>
   getDefaultSongsPath: () => Promise<string | null>
@@ -68,10 +71,17 @@ interface WindowApi {
   suggestHostAlternateNameTags: (
     beatmapSetId: number
   ) => Promise<SetOwnerAlternateTagSuggestion[]>
+  setTitleBarOverlay: (options: {
+    color: string
+    symbolColor: string
+    height?: number
+  }) => Promise<void>
   window: {
     minimize: () => void
     toggleMaximize: () => void
     close: () => void
+    startResize: (edge: WindowsResizeEdge) => void
+    endResize: () => void
   }
 }
 

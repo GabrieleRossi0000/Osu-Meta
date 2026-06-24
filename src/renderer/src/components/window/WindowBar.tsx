@@ -1,6 +1,7 @@
 import { ActionIcon, Badge, Box, Group, Tooltip, useMantineColorScheme, useMantineTheme } from '@mantine/core'
 import { IconMinus, IconSquare, IconX } from '@tabler/icons-react'
 import { useEffect, useState, type CSSProperties } from 'react'
+import { WINDOW_BAR_HEIGHT, WINDOWS_TITLE_BAR_OVERLAY } from '@shared/window-chrome'
 import logoUrl from '../../assets/logo.png'
 
 const dragStyle = { WebkitAppRegion: 'drag' } as CSSProperties
@@ -16,9 +17,10 @@ export default function WindowBar({ osuRunning = false }: WindowBarProps): JSX.E
   const isDark = colorScheme === 'dark'
   const bgColor = isDark ? theme.colors.dark[8] : theme.colors.gray[0]
   const textColor = theme.colors.primary[2]
-  const barHeight = 48
+  const barHeight = WINDOW_BAR_HEIGHT
   const logoHeight = 44
   const isDev = import.meta.env.DEV
+  const usesNativeWindowControls = window.api.usesNativeWindowControls
 
   const [version, setVersion] = useState('')
 
@@ -26,23 +28,34 @@ export default function WindowBar({ osuRunning = false }: WindowBarProps): JSX.E
     void window.api.getAppVersion().then(setVersion).catch(() => setVersion(''))
   }, [])
 
+  useEffect(() => {
+    if (!usesNativeWindowControls) return
+    const overlay = isDark ? WINDOWS_TITLE_BAR_OVERLAY.dark : WINDOWS_TITLE_BAR_OVERLAY.light
+    void window.api.setTitleBarOverlay({
+      ...overlay,
+      height: barHeight
+    })
+  }, [usesNativeWindowControls, isDark, barHeight])
+
+  const barStyle: CSSProperties = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100%',
+    zIndex: 2000,
+    height: barHeight,
+    background: bgColor,
+    color: textColor,
+    alignItems: 'center',
+    userSelect: 'none',
+    boxShadow: '0 8px 24px -12px rgba(0, 0, 0, 0.45)',
+    ...(usesNativeWindowControls ? noDragStyle : dragStyle)
+  }
+
   return (
     <Group
       gap={0}
-      style={{
-        ...dragStyle,
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100%',
-        zIndex: 2000,
-        height: barHeight,
-        background: bgColor,
-        color: textColor,
-        alignItems: 'center',
-        userSelect: 'none',
-        boxShadow: '0 8px 24px -12px rgba(0, 0, 0, 0.45)'
-      }}
+      style={barStyle}
       pl={theme.spacing.sm}
       justify="flex-end"
     >
@@ -50,7 +63,14 @@ export default function WindowBar({ osuRunning = false }: WindowBarProps): JSX.E
         gap={8}
         align="center"
         wrap="nowrap"
-        style={{ ...dragStyle, flex: 1, minWidth: 0 } as CSSProperties}
+        style={
+          {
+            ...(usesNativeWindowControls ? dragStyle : noDragStyle),
+            flex: 1,
+            minWidth: 0,
+            paddingRight: usesNativeWindowControls ? 'env(titlebar-area-width, 138px)' : undefined
+          } as CSSProperties
+        }
       >
         <img
           src={logoUrl}
@@ -94,45 +114,46 @@ export default function WindowBar({ osuRunning = false }: WindowBarProps): JSX.E
           </Badge>
         ) : null}
       </Group>
-      <div
-        style={{
-          ...noDragStyle,
-          display: 'flex',
-          alignSelf: 'stretch',
-          height: '100%',
-          gap: 0
-        }}
-      >
-        <ActionIcon
-          variant="subtle"
-          color={isDark ? 'gray' : 'dark'}
-          aria-label="Minimize"
-          onClick={() => window.api.window.minimize()}
-          style={{ ...noDragStyle, height: '100%', width: 36, borderRadius: 0 }}
+      {!usesNativeWindowControls ? (
+        <div
+          style={{
+            ...noDragStyle,
+            display: 'flex',
+            alignSelf: 'stretch',
+            height: '100%',
+            gap: 0
+          }}
         >
-          <IconMinus size={20} color={textColor} />
-        </ActionIcon>
-        <ActionIcon
-          variant="subtle"
-          color={isDark ? 'gray' : 'dark'}
-          aria-label="Maximize"
-          onClick={() => window.api.window.toggleMaximize()}
-          style={{ ...noDragStyle, height: '100%', width: 36, borderRadius: 0 }}
-        >
-          <IconSquare size={14} color={textColor} />
-        </ActionIcon>
-        <ActionIcon
-          variant="subtle"
-          color="red"
-          className="mv-window-close"
-          aria-label="Close"
-          onClick={() => window.api.window.close()}
-          style={{ ...noDragStyle, height: '100%', width: 36, borderRadius: 0 }}
-        >
-          <IconX size={20} color={theme.colors.red[6]} />
-        </ActionIcon>
-      </div>
+          <ActionIcon
+            variant="subtle"
+            color={isDark ? 'gray' : 'dark'}
+            aria-label="Minimize"
+            onClick={() => window.api.window.minimize()}
+            style={{ ...noDragStyle, height: '100%', width: 36, borderRadius: 0 }}
+          >
+            <IconMinus size={20} color={textColor} />
+          </ActionIcon>
+          <ActionIcon
+            variant="subtle"
+            color={isDark ? 'gray' : 'dark'}
+            aria-label="Maximize"
+            onClick={() => window.api.window.toggleMaximize()}
+            style={{ ...noDragStyle, height: '100%', width: 36, borderRadius: 0 }}
+          >
+            <IconSquare size={14} color={textColor} />
+          </ActionIcon>
+          <ActionIcon
+            variant="subtle"
+            color="red"
+            className="mv-window-close"
+            aria-label="Close"
+            onClick={() => window.api.window.close()}
+            style={{ ...noDragStyle, height: '100%', width: 36, borderRadius: 0 }}
+          >
+            <IconX size={20} color={theme.colors.red[6]} />
+          </ActionIcon>
+        </div>
+      ) : null}
     </Group>
   )
 }
-

@@ -276,6 +276,7 @@
 :root {
   --mv-window-bar-height: 48px;
   --mv-app-header-height: 60px;
+  --mv-editor-fields-max-width: 60rem;
   --mv-modal-padding: 1.25rem;
   --mv-modal-max-height: calc(100vh - 2.5rem);
   --mv-radius-soft: 14px;
@@ -350,6 +351,16 @@
 /* Same-route beatmap switch — see motion.scss (mv-route-outlet-wrap) */
 
 /* —— App shell & surfaces —— */
+.mv-app-main-panel {
+  width: 100%;
+  overflow: hidden;
+}
+
+.mv-editor-fields {
+  width: 100%;
+  max-width: var(--mv-editor-fields-max-width);
+}
+
 .mv-app-main {
   background: linear-gradient(
     165deg,

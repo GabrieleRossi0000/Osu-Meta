@@ -394,7 +394,15 @@ export default function MetadataEditor({
           </Alert>
         ) : null}
 
-        <Stack gap="md" className="mv-stagger-children" component="form" onSubmit={(e) => { e.preventDefault(); onSave() }}>
+        <Stack
+          gap="md"
+          className="mv-stagger-children mv-editor-fields"
+          component="form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            onSave()
+          }}
+        >
           {showSetMismatch ? (
             <SetMismatchAlert
               hasMetadataMismatch={showMetadataMismatch}
