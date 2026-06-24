@@ -1,4 +1,5 @@
 import { isFaMissingGuildTags } from '../shared/featured-artist'
+import { hasScanTimeValidationIssues } from '../shared/scan-validation'
 import { metadataEquals } from '../shared/metadata-utils'
 import type { BeatmapSetFlags } from '../shared/types'
 import { readMetadataFromFile } from './osu-file'
@@ -8,7 +9,8 @@ export function computeSetFlags(osuFiles: string[]): BeatmapSetFlags {
     return {
       needsTags: true,
       mismatchedMetadata: false,
-      faMissingGuild: false
+      faMissingGuild: false,
+      hasValidationIssues: true
     }
   }
 
@@ -19,6 +21,7 @@ export function computeSetFlags(osuFiles: string[]): BeatmapSetFlags {
   return {
     needsTags: !primary.tags.trim(),
     mismatchedMetadata: mismatched,
-    faMissingGuild: isFaMissingGuildTags(primary.tags)
+    faMissingGuild: isFaMissingGuildTags(primary.tags),
+    hasValidationIssues: hasScanTimeValidationIssues(primary, mismatched)
   }
 }

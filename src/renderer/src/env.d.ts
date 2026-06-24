@@ -5,6 +5,7 @@ import type {
   BeatmapComboColour,
   BeatmapDifficultySummary,
   BeatmapMetadata,
+  BeatmapSetStatusEntry,
   BeatmapSetSummary,
   DetectedPath,
   ImportMetadataSource,
@@ -12,10 +13,12 @@ import type {
   LoadedMetadata,
   OsuBeatmapsetSearchHit,
   RankedGenreLanguageResult,
+  RankedMetadataMatchResult,
   RankedSourceSuggestionResult,
   SaveMetadataPayload,
   SaveMetadataResult,
   SuggestRankedGenreLanguageRequest,
+  SuggestRankedMetadataMatchRequest,
   SuggestRankedSourceRequest,
   CurrentBeatmapLookupResult,
   TagSectionsExpanded,
@@ -46,9 +49,15 @@ interface WindowApi {
   openBeatmapFolder: (folderPath: string) => Promise<void>
   openBeatmapPage: (beatmapSetId: number) => Promise<void>
   checkBeatmapSetOnline: (beatmapSetId: number) => Promise<boolean>
+  resolveBeatmapSetStatuses: (
+    beatmapSetIds: number[]
+  ) => Promise<Record<number, BeatmapSetStatusEntry>>
   suggestRankedSource: (
     request: SuggestRankedSourceRequest
   ) => Promise<RankedSourceSuggestionResult>
+  suggestRankedMetadataMatch: (
+    request: SuggestRankedMetadataMatchRequest
+  ) => Promise<RankedMetadataMatchResult>
   suggestRankedGenreLanguage: (
     request: SuggestRankedGenreLanguageRequest
   ) => Promise<RankedGenreLanguageResult>

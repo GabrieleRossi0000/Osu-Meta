@@ -38,10 +38,12 @@ import type {
   BeatmapSetSummary,
   SaveMetadataPayload,
   SuggestRankedGenreLanguageRequest,
+  SuggestRankedMetadataMatchRequest,
   SuggestRankedSourceRequest,
   TagSectionsExpanded
 } from '../shared/types'
-import { suggestRankedSource } from './source-suggestion-service'
+import { suggestRankedSource, suggestRankedMetadataMatch } from './source-suggestion-service'
+import { resolveBeatmapSetStatuses } from './beatmap-set-status-service'
 import { isOsuApiConfigured, searchBeatmapsetsOnOsu } from './osu-api-client'
 
 const closeBlockedByRenderer = new WeakMap<BrowserWindow, boolean>()
@@ -183,8 +185,18 @@ export function registerIpcHandlers(): void {
     checkBeatmapSetOnline(beatmapSetId)
   )
 
+  ipcMain.handle('resolve-beatmap-set-statuses', (_event, beatmapSetIds: number[]) =>
+    resolveBeatmapSetStatuses(beatmapSetIds)
+  )
+
   ipcMain.handle('suggest-ranked-source', (_event, request: SuggestRankedSourceRequest) =>
     suggestRankedSource(request, request.beatmapSetId, { refresh: request.refresh })
+  )
+
+  ipcMain.handle(
+    'suggest-ranked-metadata-match',
+    (_event, request: SuggestRankedMetadataMatchRequest) =>
+      suggestRankedMetadataMatch(request, request.beatmapSetId)
   )
 
   ipcMain.handle(

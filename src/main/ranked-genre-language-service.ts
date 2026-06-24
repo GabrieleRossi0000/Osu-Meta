@@ -4,10 +4,11 @@ import {
 } from '../shared/genre-language-tags'
 import {
   buildSourceSuggestionCacheKey,
+  dedupeSourceMatchCandidates,
   isRankedStatus,
   metadataMatchesCandidate,
-  stripTitleVersionMarkers,
-  titleHasVersionMarkers,
+  pickLatestRankedMetadataMatch,
+  uniqueMetadataSearchTitles,
   type SourceMatchCandidate,
   type SourceMatchQuery
 } from '../shared/source-match'
@@ -19,8 +20,10 @@ import type {
 import {
   fetchBeatmapsetFromApi,
   isOsuApiConfigured,
+  searchRankedBeatmapsetsByArtist,
   searchRankedBeatmapsetsByMetadata
 } from './osu-api-client'
+import { checkFeaturedArtistSet } from './featured-artist-check'
 import {
   fetchBeatmapsetFromWebPage,
   toSourceMatchCandidate,
@@ -54,35 +57,6 @@ function titleForSearch(query: SourceMatchQuery): string {
   return query.titleUnicode.trim() || query.title.trim()
 }
 
-function rankedDateMs(candidate: SourceMatchCandidate): number {
-  if (!candidate.rankedDate) return 0
-  const ms = Date.parse(candidate.rankedDate)
-  return Number.isFinite(ms) ? ms : 0
-}
-
-function dedupeCandidates(candidates: SourceMatchCandidate[]): SourceMatchCandidate[] {
-  const seen = new Map<number, SourceMatchCandidate>()
-  for (const candidate of candidates) {
-    const existing = seen.get(candidate.beatmapSetId)
-    if (!existing || rankedDateMs(candidate) > rankedDateMs(existing)) {
-      seen.set(candidate.beatmapSetId, candidate)
-    }
-  }
-  return [...seen.values()]
-}
-
-function pickLatestRankedMatch(
-  query: SourceMatchQuery,
-  candidates: SourceMatchCandidate[]
-): SourceMatchCandidate | null {
-  const matches = candidates.filter(
-    (candidate) => metadataMatchesCandidate(query, candidate) && isRankedStatus(candidate.status)
-  )
-  if (matches.length === 0) return null
-
-  return [...matches].sort((a, b) => rankedDateMs(b) - rankedDateMs(a))[0] ?? null
-}
-
 function buildGenreLanguageCacheKey(request: SuggestRankedGenreLanguageRequest): string {
   const base = buildSourceSuggestionCacheKey({
     artistUnicode: request.artistUnicode,
@@ -90,7 +64,7 @@ function buildGenreLanguageCacheKey(request: SuggestRankedGenreLanguageRequest):
     titleUnicode: request.titleUnicode,
     title: request.title
   })
-  return `${base}::${request.beatmapSetId ?? 0}`
+  return `${base}::${request.beatmapSetId ?? 0}::meta4`
 }
 
 async function loadCandidateFromSetId(
@@ -158,8 +132,10 @@ function toSuggestion(
   const extracted = extractGenreLanguageTagsFromTagString(rankedTags)
   return {
     beatmapSetId: candidate.beatmapSetId,
-    artist: candidate.artistUnicode?.trim() || candidate.artist,
-    title: candidate.titleUnicode?.trim() || candidate.title,
+    artist: candidate.artist.trim(),
+    artistUnicode: (candidate.artistUnicode || candidate.artist).trim(),
+    title: candidate.title.trim(),
+    titleUnicode: (candidate.titleUnicode || candidate.title).trim(),
     creator: candidate.creator,
     rankedDate: candidate.rankedDate ?? null,
     rankedTags,
@@ -171,25 +147,28 @@ function toSuggestion(
 }
 
 function cacheableResult(result: RankedGenreLanguageResult): boolean {
-  return result.kind === 'found' || result.kind === 'not_found' || result.kind === 'unavailable'
+  return result.kind === 'found'
 }
 
 export async function suggestRankedGenreLanguage(
   request: SuggestRankedGenreLanguageRequest
 ): Promise<RankedGenreLanguageResult> {
+  try {
+    return await suggestRankedGenreLanguageInternal(request)
+  } catch {
+    return {
+      kind: 'unavailable',
+      message: 'Could not look up ranked sets on osu!.'
+    }
+  }
+}
+
+async function suggestRankedGenreLanguageInternal(
+  request: SuggestRankedGenreLanguageRequest
+): Promise<RankedGenreLanguageResult> {
   const cacheKey = buildGenreLanguageCacheKey(request)
   const cached = getGenreLanguageSuggestionCached(cacheKey)
-  if (cached) {
-    const mayRetryWithoutMarkers =
-      cached.kind === 'not_found' &&
-      titleHasVersionMarkers(titleForSearch({
-        artistUnicode: request.artistUnicode,
-        artist: request.artist,
-        titleUnicode: request.titleUnicode,
-        title: request.title
-      }))
-    if (!mayRetryWithoutMarkers) return cached
-  }
+  if (cached) return cached
 
   const query: SourceMatchQuery = {
     artistUnicode: request.artistUnicode,
@@ -233,18 +212,22 @@ export async function suggestRankedGenreLanguage(
   }
 
   if (!best) {
-    await searchAndCollect(title)
+    for (const searchTitle of uniqueMetadataSearchTitles(title)) {
+      await searchAndCollect(searchTitle)
+    }
 
-    let uniqueCandidates = dedupeCandidates(candidates)
-    best = pickLatestRankedMatch(query, uniqueCandidates)
+    let uniqueCandidates = dedupeSourceMatchCandidates(candidates)
+    best = pickLatestRankedMetadataMatch(query, uniqueCandidates)
 
-    if (!best && titleHasVersionMarkers(title)) {
-      const strippedTitle = stripTitleVersionMarkers(title)
-      if (strippedTitle) {
-        await searchAndCollect(strippedTitle)
-        uniqueCandidates = dedupeCandidates(candidates)
-        best = pickLatestRankedMatch(query, uniqueCandidates)
+    if (!best) {
+      try {
+        const artistResults = await searchRankedBeatmapsetsByArtist(artist)
+        candidates.push(...artistResults)
+      } catch {
+        // fall through
       }
+      uniqueCandidates = dedupeSourceMatchCandidates(candidates)
+      best = pickLatestRankedMetadataMatch(query, uniqueCandidates)
     }
   }
 
@@ -257,13 +240,17 @@ export async function suggestRankedGenreLanguage(
         message: 'Could not look up ranked sets on osu!.'
       }
     } else {
-      result = { kind: 'not_found' }
+      result = { kind: 'not_found', isFeaturedArtist: false }
     }
   } else {
-    const { tags: rankedTags, genre: pageGenre, language: pageLanguage } =
-      await loadRankedSetTagContext(best.beatmapSetId)
+    const [{ tags: rankedTags, genre: pageGenre, language: pageLanguage }, isFeaturedArtist] =
+      await Promise.all([
+        loadRankedSetTagContext(best.beatmapSetId),
+        checkFeaturedArtistSet(best.beatmapSetId)
+      ])
     result = {
       kind: 'found',
+      isFeaturedArtist,
       suggestion: toSuggestion(best, rankedTags, pageGenre, pageLanguage)
     }
   }

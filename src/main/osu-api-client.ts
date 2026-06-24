@@ -5,14 +5,20 @@ import {
 } from '../shared/osu-beatmap-search-relevance'
 import { resolveArtistTitleQuery, searchQueriesFor } from '../shared/osu-beatmap-search-query'
 import { isLeaderboardBeatmapsetStatus, LEADERBOARD_BEATMAPSET_STATUSES } from '../shared/osu-beatmap-status'
-import { fetchFirstBeatmapIdFromWebPage } from './osu-beatmapset-web'
+import {
+  buildArtistStatusSearchQuery,
+  buildMetadataSearchQuery,
+  METADATA_LOOKUP_SEARCH_STATUSES
+} from '../shared/osu-beatmap-search-query'
 import type { SourceMatchCandidate } from '../shared/source-match'
 import type { OsuBeatmapsetSearchHit } from '../shared/types'
 import { OSU_API_CLIENT_ID, OSU_API_CLIENT_SECRET } from './osu-api-credentials'
+import { fetchFirstBeatmapIdFromWebPage } from './osu-beatmapset-web'
 
 const USER_AGENT = 'OsuMeta/1.0'
 const TOKEN_URL = 'https://osu.ppy.sh/oauth/token'
 const API_BASE = 'https://osu.ppy.sh/api/v2'
+const API_FETCH_TIMEOUT_MS = 12_000
 
 interface TokenCache {
   accessToken: string
@@ -30,6 +36,21 @@ function getClientCredentials(): { clientId: string; clientSecret: string } | nu
 
 export function isOsuApiConfigured(): boolean {
   return getClientCredentials() !== null
+}
+
+async function fetchWithTimeout(
+  url: string | URL,
+  init: RequestInit = {},
+  timeoutMs = API_FETCH_TIMEOUT_MS
+): Promise<Response> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    return await fetch(url, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(timeout)
+  }
 }
 
 async function getAccessToken(): Promise<string | null> {
@@ -212,18 +233,22 @@ export async function searchBeatmapsetsOnOsu(query: string): Promise<OsuBeatmaps
   return filterBeatmapsetSearchResults(sorted, trimmed, parsed)
 }
 
-export async function searchRankedBeatmapsetsByMetadata(
-  artist: string,
-  title: string
-): Promise<SourceMatchCandidate[]> {
-  const accessToken = await getAccessToken()
-  if (!accessToken) return []
+function dedupeCandidatesBySetId(candidates: SourceMatchCandidate[]): SourceMatchCandidate[] {
+  const seen = new Map<number, SourceMatchCandidate>()
+  for (const candidate of candidates) {
+    seen.set(candidate.beatmapSetId, candidate)
+  }
+  return [...seen.values()]
+}
 
-  const query = [`artist=${artist}`, `title=${title}`, 'status=ranked'].join(' ')
+async function searchBeatmapsetsWithQuery(
+  accessToken: string,
+  query: string
+): Promise<SourceMatchCandidate[]> {
   const url = new URL(`${API_BASE}/beatmapsets/search`)
   url.searchParams.set('q', query)
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       Accept: 'application/json',
       Authorization: `Bearer ${accessToken}`,
@@ -235,6 +260,37 @@ export async function searchRankedBeatmapsetsByMetadata(
 
   const payload = (await response.json()) as { beatmapsets?: ApiBeatmapset[] }
   return (payload.beatmapsets ?? []).map(toCandidate)
+}
+
+export async function searchRankedBeatmapsetsByMetadata(
+  artist: string,
+  title: string
+): Promise<SourceMatchCandidate[]> {
+  const accessToken = await getAccessToken()
+  if (!accessToken) return []
+
+  const batches = await Promise.all(
+    METADATA_LOOKUP_SEARCH_STATUSES.map((status) =>
+      searchBeatmapsetsWithQuery(accessToken, buildMetadataSearchQuery(artist, title, status))
+    )
+  )
+
+  return dedupeCandidatesBySetId(batches.flat())
+}
+
+export async function searchRankedBeatmapsetsByArtist(
+  artist: string
+): Promise<SourceMatchCandidate[]> {
+  const accessToken = await getAccessToken()
+  if (!accessToken) return []
+
+  const batches = await Promise.all(
+    METADATA_LOOKUP_SEARCH_STATUSES.map((status) =>
+      searchBeatmapsetsWithQuery(accessToken, buildArtistStatusSearchQuery(artist, status))
+    )
+  )
+
+  return dedupeCandidatesBySetId(batches.flat())
 }
 
 export async function fetchFirstBeatmapIdFromSet(beatmapSetId: number): Promise<number | null> {

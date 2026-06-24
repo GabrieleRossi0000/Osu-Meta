@@ -1,5 +1,5 @@
 import { Badge, Box, Group, Loader, Text, TextInput, Tooltip } from '@mantine/core'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
 import { sourcesMatch } from '@shared/source-match'
 import type { BeatmapMetadata, BeatmapSetSummary, RankedSourceSuggestionResult } from '@shared/types'
@@ -7,16 +7,19 @@ import type { BeatmapMetadata, BeatmapSetSummary, RankedSourceSuggestionResult }
 interface SourceFieldProps {
   selected: BeatmapSetSummary
   metadata: BeatmapMetadata
+  isOnOsuWebsite: boolean
   onChange: (source: string) => void
 }
 
 export default function SourceField({
   selected,
   metadata,
+  isOnOsuWebsite,
   onChange
 }: SourceFieldProps): JSX.Element {
   const [lookup, setLookup] = useState<RankedSourceSuggestionResult | null>(null)
   const [loading, setLoading] = useState(false)
+  const lastFetchedSourceLookupKeyRef = useRef<string | null>(null)
 
   const currentSource = metadata.source.trim()
   const sourceIsEmpty = currentSource.length === 0
@@ -30,8 +33,28 @@ export default function SourceField({
     [selected.beatmapSetId, selected.folderName]
   )
 
+  const sourceLookupKey = useMemo(
+    () =>
+      [
+        metadata.artistUnicode,
+        metadata.artist,
+        metadata.titleUnicode,
+        metadata.title,
+        isOnOsuWebsite ? String(beatmapSetId ?? 0) : '0'
+      ].join('\u001f'),
+    [
+      metadata.artistUnicode,
+      metadata.artist,
+      metadata.titleUnicode,
+      metadata.title,
+      isOnOsuWebsite,
+      beatmapSetId
+    ]
+  )
+
   useEffect(() => {
     setLookup(null)
+    lastFetchedSourceLookupKeyRef.current = null
   }, [selected.folderPath])
 
   useEffect(() => {
@@ -40,8 +63,15 @@ export default function SourceField({
     if (!artist || !title) {
       setLookup(null)
       setLoading(false)
+      lastFetchedSourceLookupKeyRef.current = null
       return
     }
+
+    if (lastFetchedSourceLookupKeyRef.current === sourceLookupKey) {
+      return
+    }
+
+    lastFetchedSourceLookupKeyRef.current = sourceLookupKey
 
     let cancelled = false
     setLoading(true)
@@ -52,7 +82,7 @@ export default function SourceField({
         artist: metadata.artist,
         titleUnicode: metadata.titleUnicode,
         title: metadata.title,
-        beatmapSetId,
+        beatmapSetId: isOnOsuWebsite ? beatmapSetId : null,
         refresh: sourceIsEmpty
       })
       .then((result) => {
@@ -66,12 +96,14 @@ export default function SourceField({
       cancelled = true
     }
   }, [
-    metadata.artist,
+    sourceLookupKey,
     metadata.artistUnicode,
-    metadata.title,
+    metadata.artist,
     metadata.titleUnicode,
+    metadata.title,
     selected.folderPath,
     beatmapSetId,
+    isOnOsuWebsite,
     sourceIsEmpty
   ])
 
@@ -96,7 +128,7 @@ export default function SourceField({
             From ranked map on osu!:
           </Text>
           <Tooltip
-            label={`${suggestion.artist} - ${suggestion.title} · mapped by ${suggestion.creator} · set #${suggestion.beatmapSetId}`}
+            label={`${suggestion.artistUnicode || suggestion.artist} - ${suggestion.titleUnicode || suggestion.title} · mapped by ${suggestion.creator} · set #${suggestion.beatmapSetId}`}
           >
             <Badge
               variant="light"

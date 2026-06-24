@@ -4,6 +4,7 @@ import type {
   AppSettings,
   BeatmapMetadata,
   BeatmapDifficultySummary,
+  BeatmapSetStatusEntry,
   BeatmapSetSummary,
   CurrentBeatmapLookupResult,
   DetectedPath,
@@ -11,10 +12,12 @@ import type {
   LoadedMetadata,
   OsuBeatmapsetSearchHit,
   RankedGenreLanguageResult,
+  RankedMetadataMatchResult,
   RankedSourceSuggestionResult,
   SaveMetadataPayload,
   SaveMetadataResult,
   SuggestRankedGenreLanguageRequest,
+  SuggestRankedMetadataMatchRequest,
   SuggestRankedSourceRequest,
   TagSectionsExpanded,
   GuestMapperTagSuggestion,
@@ -62,8 +65,16 @@ const api = {
     ipcRenderer.invoke('open-beatmap-page', beatmapSetId),
   checkBeatmapSetOnline: (beatmapSetId: number): Promise<boolean> =>
     ipcRenderer.invoke('check-beatmap-set-online', beatmapSetId),
+  resolveBeatmapSetStatuses: (
+    beatmapSetIds: number[]
+  ): Promise<Record<number, BeatmapSetStatusEntry>> =>
+    ipcRenderer.invoke('resolve-beatmap-set-statuses', beatmapSetIds),
   suggestRankedSource: (request: SuggestRankedSourceRequest): Promise<RankedSourceSuggestionResult> =>
     ipcRenderer.invoke('suggest-ranked-source', request),
+  suggestRankedMetadataMatch: (
+    request: SuggestRankedMetadataMatchRequest
+  ): Promise<RankedMetadataMatchResult> =>
+    ipcRenderer.invoke('suggest-ranked-metadata-match', request),
   suggestRankedGenreLanguage: (
     request: SuggestRankedGenreLanguageRequest
   ): Promise<RankedGenreLanguageResult> =>

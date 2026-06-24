@@ -4,8 +4,44 @@ export interface ArtistTitleQuery {
 }
 
 export function buildStructuredBeatmapSearchQuery(artist: string, title: string): string {
-  return `artist=${artist} title=${title}`
+  return `${formatOsuBeatmapSearchField('artist', artist)} ${formatOsuBeatmapSearchField('title', title)}`
 }
+
+/** Quote osu! search values that contain spaces so multi-word titles match correctly. */
+export function formatOsuBeatmapSearchField(
+  field: 'artist' | 'title',
+  value: string
+): string {
+  const trimmed = value.trim()
+  if (!trimmed) return `${field}=`
+
+  const escaped = trimmed.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
+  const formatted = /[\s"]/.test(trimmed) ? `"${escaped}"` : escaped
+  return `${field}=${formatted}`
+}
+
+export function buildMetadataSearchQuery(artist: string, title: string, status: string): string {
+  return [
+    formatOsuBeatmapSearchField('artist', artist),
+    formatOsuBeatmapSearchField('title', title),
+    `status=${status}`
+  ].join(' ')
+}
+
+export function buildRankedMetadataSearchQuery(artist: string, title: string): string {
+  return buildMetadataSearchQuery(artist, title, 'ranked')
+}
+
+export function buildArtistStatusSearchQuery(artist: string, status: string): string {
+  return [formatOsuBeatmapSearchField('artist', artist), `status=${status}`].join(' ')
+}
+
+export function buildRankedArtistSearchQuery(artist: string): string {
+  return buildArtistStatusSearchQuery(artist, 'ranked')
+}
+
+/** osu! statuses queried when looking up tag/source reference sets. */
+export const METADATA_LOOKUP_SEARCH_STATUSES = ['ranked', 'qualified'] as const
 
 export function parseStructuredBeatmapSearchQuery(query: string): ArtistTitleQuery | null {
   const trimmed = query.trim()

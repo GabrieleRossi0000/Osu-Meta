@@ -16,7 +16,8 @@ import {
 } from '@tabler/icons-react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from 'react'
-import type { BeatmapSetSummary } from '@shared/types'
+import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
+import type { BeatmapSetStatusEntry, BeatmapSetSummary } from '@shared/types'
 import BeatmapCard from './BeatmapCard'
 
 const CARD_HEIGHT = 96
@@ -40,6 +41,7 @@ interface BeatmapsSidebarProps {
   fetchingCurrent: boolean
   fetchNotice: string | null
   onDismissFetchNotice: () => void
+  statusBySetId: Record<number, BeatmapSetStatusEntry>
 }
 
 function BeatmapsSidebar({
@@ -58,7 +60,8 @@ function BeatmapsSidebar({
   onFetchCurrent,
   fetchingCurrent,
   fetchNotice,
-  onDismissFetchNotice
+  onDismissFetchNotice,
+  statusBySetId
 }: BeatmapsSidebarProps): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -210,6 +213,7 @@ function BeatmapsSidebar({
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
               const bm = filteredBeatmaps[virtualRow.index]
+              const setId = resolveBeatmapSetId(bm)
               return (
                 <div
                   key={bm.folderPath}
@@ -226,6 +230,7 @@ function BeatmapsSidebar({
                 >
                   <BeatmapCard
                     beatmap={bm}
+                    statusEntry={setId != null ? (statusBySetId[setId] ?? null) : null}
                     isSelected={selectedFolderPath === bm.folderPath}
                     isHighlighted={highlightedFolderPath === bm.folderPath}
                     isDirty={dirtyFolderPath === bm.folderPath}

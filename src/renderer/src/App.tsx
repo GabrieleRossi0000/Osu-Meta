@@ -24,6 +24,7 @@ import { filterBeatmaps } from '@shared/filter-beatmaps'
 import { matchBeatmapByDisplayTitle } from '@shared/match-display-name'
 import type { BeatmapSetSummary, DetectedPath } from '@shared/types'
 import BeatmapsSidebar from './components/beatmaps/BeatmapsSidebar'
+import { useBeatmapSetStatuses } from './components/beatmaps/useBeatmapSetStatuses'
 import SidebarResizeHandle from './components/beatmaps/SidebarResizeHandle'
 import KeyboardShortcutsHelp from './components/common/KeyboardShortcutsHelp'
 import NoBeatmapSelected from './components/common/NoBeatmapSelected'
@@ -169,6 +170,7 @@ function MainScreen({
   const workspaceRef = useRef<BeatmapWorkspaceHandle>(null)
 
   const [debouncedListSearch] = useDebouncedValue(listSearch, 200)
+  const statusBySetId = useBeatmapSetStatuses(beatmaps)
   const filteredBeatmaps = useMemo(
     () => filterBeatmaps(beatmaps, debouncedListSearch),
     [beatmaps, debouncedListSearch]
@@ -380,7 +382,7 @@ function MainScreen({
   return (
     <>
       <AppShell
-        className="mv-app-shell"
+        className={`mv-app-shell${navbarOpened ? '' : ' mv-app-shell--sidebar-collapsed'}`}
         header={{ height: 92 }}
         navbar={{
           width: sidebarWidth,
@@ -388,6 +390,8 @@ function MainScreen({
           collapsed: { mobile: !navbarOpened, desktop: !navbarOpened }
         }}
         padding={0}
+        transitionDuration={380}
+        transitionTimingFunction="cubic-bezier(0.22, 1, 0.36, 1)"
       >
         <AppShell.Header
           className="mv-app-header"
@@ -427,6 +431,7 @@ function MainScreen({
             fetchingCurrent={fetchingCurrent}
             fetchNotice={fetchNotice}
             onDismissFetchNotice={() => setFetchNotice(null)}
+            statusBySetId={statusBySetId}
           />
             <SidebarResizeHandle
               width={sidebarWidth}
@@ -459,7 +464,11 @@ function MainScreen({
             type="always"
             h="calc(100vh - var(--app-shell-header-offset, 0rem) + var(--app-shell-padding))"
           >
-            <Container p="sm" fluid className="mv-app-main-panel">
+            <Container
+              p="sm"
+              fluid
+              className={`mv-app-main-panel${navbarOpened ? '' : ' mv-app-main-panel--sidebar-collapsed'}`}
+            >
               {selected ? (
                 <div key={selected.folderPath} className="mv-beatmap-panel-enter">
                   <BeatmapWorkspace

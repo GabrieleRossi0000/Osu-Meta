@@ -3,6 +3,7 @@ import type {
   AppSettings,
   BeatmapDifficultySummary,
   BeatmapMetadata,
+  BeatmapSetStatusEntry,
   BeatmapSetSummary,
   CurrentBeatmapLookupResult,
   DetectedPath,
@@ -10,10 +11,12 @@ import type {
   LoadedMetadata,
   OsuBeatmapsetSearchHit,
   RankedGenreLanguageResult,
+  RankedMetadataMatchResult,
   RankedSourceSuggestionResult,
   SaveMetadataPayload,
   SaveMetadataResult,
   SuggestRankedGenreLanguageRequest,
+  SuggestRankedMetadataMatchRequest,
   SuggestRankedSourceRequest,
   TagSectionsExpanded,
   GuestMapperTagSuggestion,
@@ -49,9 +52,15 @@ export interface OsuMetaAPI {
   openBeatmapFolder: (folderPath: string) => Promise<void>
   openBeatmapPage: (beatmapSetId: number) => Promise<void>
   checkBeatmapSetOnline: (beatmapSetId: number) => Promise<boolean>
+  resolveBeatmapSetStatuses: (
+    beatmapSetIds: number[]
+  ) => Promise<Record<number, BeatmapSetStatusEntry>>
   suggestRankedSource: (
     request: SuggestRankedSourceRequest
   ) => Promise<RankedSourceSuggestionResult>
+  suggestRankedMetadataMatch: (
+    request: SuggestRankedMetadataMatchRequest
+  ) => Promise<RankedMetadataMatchResult>
   suggestRankedGenreLanguage: (
     request: SuggestRankedGenreLanguageRequest
   ) => Promise<RankedGenreLanguageResult>

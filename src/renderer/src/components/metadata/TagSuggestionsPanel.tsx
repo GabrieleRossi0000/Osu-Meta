@@ -29,6 +29,9 @@ interface TagSuggestionsPanelProps {
   onPanelOpenChange: (open: boolean) => void
   activeKey: keyof TagSectionsExpanded
   onActiveKeyChange: (key: keyof TagSectionsExpanded) => void
+  disabled?: boolean
+  disabledMessage?: string
+  hint?: string
 }
 
 export default function TagSuggestionsPanel({
@@ -36,7 +39,10 @@ export default function TagSuggestionsPanel({
   panelOpen,
   onPanelOpenChange,
   activeKey,
-  onActiveKeyChange
+  onActiveKeyChange,
+  disabled = false,
+  disabledMessage = 'Fill in artist and title to look up language and genre tags.',
+  hint
 }: TagSuggestionsPanelProps): JSX.Element | null {
   const visibleCategories = useMemo(
     () => categories.filter((category) => category.visible),
@@ -70,6 +76,26 @@ export default function TagSuggestionsPanel({
 
     if (preferred) onActiveKeyChange(preferred.key)
   }, [visibleCategories, activeKey, onActiveKeyChange])
+
+  if (disabled) {
+    return (
+      <Box className="mv-tag-suggestions-panel mv-tag-suggestions-panel--disabled">
+        <Box className="mv-tag-suggestions-panel-header mv-tag-suggestions-panel-header--disabled">
+          <Group justify="space-between" wrap="nowrap" gap="sm" w="100%">
+            <Group gap={8} wrap="nowrap">
+              <IconChevronRight size={15} stroke={2.5} className="mv-chevron-icon" />
+              <Text size="sm" fw={500} className="mv-tag-section-label">
+                Suggested tags
+              </Text>
+            </Group>
+            <Text size="xs" className="mv-tag-suggestions-disabled-message">
+              {disabledMessage}
+            </Text>
+          </Group>
+        </Box>
+      </Box>
+    )
+  }
 
   if (visibleCategories.length === 0) return null
 
@@ -116,6 +142,11 @@ export default function TagSuggestionsPanel({
 
       <Collapse in={panelOpen} transitionDuration={200}>
         <Box className="mv-tag-suggestions-panel-body">
+          {hint ? (
+            <Text size="xs" className="mv-tag-suggestions-hint mv-tag-suggestions-hint--restricted" mb="xs">
+              {hint}
+            </Text>
+          ) : null}
           <Text size="xs" className="mv-tag-suggestions-hint" mb="xs">
             Choose a category, then click a tag to add it.
           </Text>

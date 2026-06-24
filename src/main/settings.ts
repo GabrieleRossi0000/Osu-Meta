@@ -27,6 +27,7 @@ const store = new Store<AppSettings>({
     sidebarWidth: 256,
     featuredArtistCache: {},
     beatmapSetOnlineCache: {},
+    beatmapSetStatusCache: {},
     sourceSuggestionCache: {},
     genreLanguageSuggestionCache: {}
   }
@@ -42,6 +43,7 @@ export function getSettings(): AppSettings {
     sidebarWidth: store.get('sidebarWidth') ?? 256,
     featuredArtistCache: store.get('featuredArtistCache') ?? {},
     beatmapSetOnlineCache: store.get('beatmapSetOnlineCache') ?? {},
+    beatmapSetStatusCache: store.get('beatmapSetStatusCache') ?? {},
     sourceSuggestionCache: store.get('sourceSuggestionCache') ?? {},
     genreLanguageSuggestionCache: store.get('genreLanguageSuggestionCache') ?? {}
   }
@@ -128,6 +130,18 @@ export function setBeatmapSetOnlineCached(setId: number, online: boolean): void 
   const cache = { ...(store.get('beatmapSetOnlineCache') ?? {}) }
   cache[String(setId)] = online
   store.set('beatmapSetOnlineCache', cache)
+}
+
+export function getBeatmapSetStatusCached(setId: number): string | undefined {
+  const cache = store.get('beatmapSetStatusCache') ?? {}
+  const value = cache[String(setId)]
+  return typeof value === 'string' && value.trim() ? value : undefined
+}
+
+export function setBeatmapSetStatusCached(setId: number, status: string): void {
+  const cache = { ...(store.get('beatmapSetStatusCache') ?? {}) }
+  cache[String(setId)] = status.trim()
+  store.set('beatmapSetStatusCache', cache)
 }
 
 export function getSourceSuggestionCached(

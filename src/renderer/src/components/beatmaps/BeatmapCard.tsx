@@ -1,12 +1,16 @@
-import { Box, Flex, Stack, Text } from '@mantine/core'
+import { Badge, Box, Flex, Group, Stack, Text, Tooltip } from '@mantine/core'
 import { memo, useState } from 'react'
-import type { BeatmapSetSummary } from '@shared/types'
+import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
+import type { BeatmapSetStatusEntry, BeatmapSetSummary } from '@shared/types'
+import BeatmapSetStatusBadge from '../metadata/BeatmapSetStatusBadge'
+import BeatmapCardBadgePill from './BeatmapCardBadgePill'
 import { parseDisplayName } from '../../utils/parseDisplayName'
 
 export type BeatmapCardVariant = 'sidebar' | 'picker'
 
 interface BeatmapCardProps {
   beatmap: BeatmapSetSummary
+  statusEntry?: BeatmapSetStatusEntry | null
   isSelected: boolean
   isHighlighted: boolean
   isDirty?: boolean
@@ -20,6 +24,7 @@ const SIDEBAR_HEIGHT = 96
 
 function BeatmapCard({
   beatmap,
+  statusEntry = null,
   isSelected,
   isHighlighted,
   isDirty = false,
@@ -30,6 +35,13 @@ function BeatmapCard({
   const bgUrl = beatmap.backgroundImageUrl ?? undefined
   const { artist, title } = parseDisplayName(beatmap.displayName, beatmap.folderName)
   const isPicker = variant === 'picker'
+  const beatmapSetId = resolveBeatmapSetId(beatmap)
+  const { flags } = beatmap
+  const isFeaturedArtist = statusEntry?.isFeaturedArtist ?? false
+  const showFaBadge = isFeaturedArtist || flags.faMissingGuild
+  const faBadgeLabel = flags.faMissingGuild
+    ? 'Featured artist — tags incomplete'
+    : 'Featured artist'
 
   const transitionMs = '0.22s ease'
   const active = isSelected || isHovered
@@ -97,6 +109,48 @@ function BeatmapCard({
         }}
       />
       {isDirty && !isPicker ? <Box className="mv-beatmap-card-dirty-dot" aria-hidden /> : null}
+      {!isPicker ? (
+        <Group
+          gap={4}
+          wrap="wrap"
+          className="mv-beatmap-card-badge-bar"
+          style={{ pointerEvents: 'none' }}
+        >
+          <BeatmapSetStatusBadge
+            statusEntry={statusEntry}
+            beatmapSetId={beatmapSetId}
+            size="xs"
+            surface="card"
+          />
+          {flags.mismatchedMetadata ? (
+            <BeatmapCardBadgePill>
+              <Tooltip label="Metadata differs between difficulties">
+                <Badge size="xs" variant="filled" color="yellow">
+                  Mismatch
+                </Badge>
+              </Tooltip>
+            </BeatmapCardBadgePill>
+          ) : null}
+          {showFaBadge ? (
+            <BeatmapCardBadgePill>
+              <Tooltip label={faBadgeLabel}>
+                <Badge size="xs" variant="filled" color="grape">
+                  FA
+                </Badge>
+              </Tooltip>
+            </BeatmapCardBadgePill>
+          ) : null}
+          {flags.hasValidationIssues ? (
+            <BeatmapCardBadgePill>
+              <Tooltip label="Validation issues in metadata">
+                <Badge size="xs" variant="filled" color="red">
+                  Issues
+                </Badge>
+              </Tooltip>
+            </BeatmapCardBadgePill>
+          ) : null}
+        </Group>
+      ) : null}
       <Box
         style={{
           position: 'absolute',
@@ -109,6 +163,7 @@ function BeatmapCard({
         }}
       />
       <Flex
+        className={isPicker ? undefined : 'mv-beatmap-card__content'}
         direction="column"
         justify="center"
         align="center"
@@ -122,7 +177,7 @@ function BeatmapCard({
           textAlign: 'center'
         }}
       >
-        <Stack gap={isPicker ? 4 : 'sm'} align="center" w="100%">
+        <Stack gap={isPicker ? 4 : 2} align="center" w="100%">
           <Stack gap={2} align="center" w="100%">
             <Text size={isPicker ? 'sm' : undefined} fw={isPicker ? 600 : undefined} style={artistTitleStyle}>
               {artist}
@@ -133,12 +188,11 @@ function BeatmapCard({
               </Text>
             ) : null}
           </Stack>
-          <Text fs="italic" size="xs" style={textStyle}>
-            {beatmap.diffCount} difficult{beatmap.diffCount === 1 ? 'y' : 'ies'}
-            {!isPicker && beatmap.hiddenDuplicateCount > 0
-              ? ` · ${beatmap.hiddenDuplicateCount} older cop${beatmap.hiddenDuplicateCount === 1 ? 'y' : 'ies'} hidden`
-              : ''}
-          </Text>
+          {isPicker ? (
+            <Text fs="italic" size="xs" style={textStyle}>
+              {beatmap.diffCount} difficult{beatmap.diffCount === 1 ? 'y' : 'ies'}
+            </Text>
+          ) : null}
         </Stack>
       </Flex>
     </Flex>
@@ -152,6 +206,8 @@ export default memo(BeatmapCard, (prev, next) => {
     prev.beatmap.diffCount === next.beatmap.diffCount &&
     prev.beatmap.backgroundImageUrl === next.beatmap.backgroundImageUrl &&
     prev.beatmap.hiddenDuplicateCount === next.beatmap.hiddenDuplicateCount &&
+    prev.beatmap.flags === next.beatmap.flags &&
+    prev.statusEntry === next.statusEntry &&
     prev.isSelected === next.isSelected &&
     prev.isHighlighted === next.isHighlighted &&
     prev.isDirty === next.isDirty &&

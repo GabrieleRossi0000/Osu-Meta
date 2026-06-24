@@ -276,7 +276,6 @@
 :root {
   --mv-window-bar-height: 48px;
   --mv-app-header-height: 60px;
-  --mv-editor-fields-max-width: 60rem;
   --mv-modal-padding: 1.25rem;
   --mv-modal-max-height: calc(100vh - 2.5rem);
   --mv-radius-soft: 14px;
@@ -354,11 +353,26 @@
 .mv-app-main-panel {
   width: 100%;
   overflow: hidden;
+  transition: padding var(--mv-dur-sidebar-layout, 380ms) var(--mv-ease-spring, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.mv-app-main-panel--sidebar-collapsed {
+  padding:
+    var(--mantine-spacing-md)
+    clamp(var(--mantine-spacing-lg), 5vw, 3.5rem) !important;
 }
 
 .mv-editor-fields {
   width: 100%;
-  max-width: var(--mv-editor-fields-max-width);
+  max-width: 60rem;
+  transition: max-width var(--mv-dur-sidebar-layout, 380ms) var(--mv-ease-spring, cubic-bezier(0.22, 1, 0.36, 1));
+}
+
+.mv-beatmap-panel-stagger {
+  width: 100%;
+  max-width: 100%;
+  margin-inline: auto;
+  transition: max-width var(--mv-dur-sidebar-layout, 380ms) var(--mv-ease-spring, cubic-bezier(0.22, 1, 0.36, 1));
 }
 
 .mv-app-main {
@@ -398,6 +412,23 @@
       color-mix(in srgb, var(--mantine-color-dark-8) 96%, var(--mantine-color-dark-7)) 0%,
       var(--mantine-color-dark-8) 100%
     ) !important;
+  }
+
+  &--sidebar-collapsed {
+    .mv-beatmap-panel-stagger {
+      max-width: 44rem;
+    }
+
+    .mv-editor-fields {
+      max-width: 40rem;
+    }
+
+    @media (max-width: 48em) {
+      .mv-beatmap-panel-stagger,
+      .mv-editor-fields {
+        max-width: 100%;
+      }
+    }
   }
 }
 
@@ -615,6 +646,13 @@
     background: color-mix(in srgb, var(--mantine-color-dark-5) 88%, transparent);
     box-shadow: inset 0 1px 0 color-mix(in srgb, white 4%, transparent);
   }
+
+  &--disabled {
+    border-color: color-mix(in srgb, var(--mantine-color-dark-4) 40%, transparent);
+    background: color-mix(in srgb, var(--mantine-color-dark-7) 65%, transparent);
+    opacity: 0.72;
+    cursor: not-allowed;
+  }
 }
 
 .mv-tag-suggestions-panel-header {
@@ -627,6 +665,21 @@
   &:hover {
     background: color-mix(in srgb, white 3%, transparent);
   }
+
+  &--disabled {
+    cursor: not-allowed;
+
+    &:hover {
+      background: transparent;
+    }
+  }
+}
+
+.mv-tag-suggestions-disabled-message {
+  color: var(--mantine-color-gray-6);
+  line-height: 1.35;
+  text-align: right;
+  max-width: min(18rem, 55%);
 }
 
 .mv-tag-suggestions-panel-body {
@@ -636,6 +689,10 @@
 .mv-tag-suggestions-hint {
   color: var(--mantine-color-gray-5);
   line-height: 1.4;
+
+  &--restricted {
+    color: var(--mantine-color-gray-6);
+  }
 }
 
 .mv-tag-suggestions-tabs-root {
@@ -1256,6 +1313,92 @@
   }
 }
 
+.mv-beatmap-card-badge-bar {
+  position: absolute;
+  top: 5px;
+  left: 5px;
+  right: 5px;
+  z-index: 3;
+  max-width: calc(100% - 10px);
+  gap: 3px !important;
+
+  .mv-beatmap-card-badge-pill .mantine-Badge-root {
+    --badge-height: 15px;
+    --badge-fz: 9px;
+    --badge-padding-x: 5px;
+    height: 15px;
+    min-height: 15px;
+    padding-inline: 5px;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+}
+
+.mv-beatmap-card__content {
+  padding-top: 22px;
+  justify-content: flex-start;
+}
+
+.mv-beatmap-card-badge-pill {
+  position: relative;
+  display: inline-flex;
+  line-height: 0;
+  isolation: isolate;
+  border-radius: var(--mantine-radius-xs);
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(10, 12, 16, 0.4);
+    backdrop-filter: blur(5px);
+    -webkit-backdrop-filter: blur(5px);
+    z-index: 0;
+  }
+
+  > * {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+/* Status badge tones — WIP warmer orange, pending yellow, graveyard muted */
+.mv-status-badge--wip {
+  background-color: var(--mantine-color-orange-7) !important;
+  color: #fff8ef !important;
+}
+
+.mv-status-badge--pending {
+  background-color: var(--mantine-color-yellow-5) !important;
+  color: var(--mantine-color-dark-8) !important;
+}
+
+.mv-status-badge--graveyard {
+  background-color: var(--mantine-color-dark-7) !important;
+  color: var(--mantine-color-gray-4) !important;
+  border: 1px solid var(--mantine-color-dark-5);
+}
+
+/* Light variant (editor hero) — keep WIP/graveyard distinct from pending */
+.mantine-Badge-root.mv-status-badge--wip[data-variant='light'] {
+  background-color: color-mix(in srgb, var(--mantine-color-orange-7) 28%, transparent) !important;
+  color: var(--mantine-color-orange-3) !important;
+}
+
+.mantine-Badge-root.mv-status-badge--pending[data-variant='light'] {
+  background-color: color-mix(in srgb, var(--mantine-color-yellow-5) 22%, transparent) !important;
+  color: var(--mantine-color-yellow-3) !important;
+}
+
+.mantine-Badge-root.mv-status-badge--graveyard[data-variant='light'] {
+  background-color: color-mix(in srgb, var(--mantine-color-dark-6) 55%, transparent) !important;
+  color: var(--mantine-color-gray-5) !important;
+  border: 1px solid var(--mantine-color-dark-5);
+}
+
 /* —— Empty state —— */
 .mv-empty-state-icon {
   animation: mv-empty-pulse 2.8s ease-in-out infinite;
@@ -1307,5 +1450,12 @@
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
     background: rgba(6, 10, 18, 0.78) !important;
+  }
+
+  .mv-app-main-panel,
+  .mv-editor-fields,
+  .mv-beatmap-panel-stagger,
+  .mv-app-shell {
+    transition-duration: 1ms !important;
   }
 }

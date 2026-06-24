@@ -28,10 +28,12 @@ import {
 } from '@shared/metadata-utils'
 import { applyRomanizedFieldLocks, getRomanizedFieldLocks } from '@shared/romanization'
 import { formatSaveSuccessMessage } from '@shared/save-metadata-message'
+import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
 import type {
   BeatmapComboColour,
   BeatmapDifficultySummary,
   BeatmapMetadata,
+  BeatmapSetStatusEntry,
   BeatmapSetSummary,
   ComboColourMismatchGroup,
   ImportMetadataMode,
@@ -39,7 +41,6 @@ import type {
   MetadataFieldMismatchDetail,
   TagSectionsExpanded
 } from '@shared/types'
-import { resolveBeatmapSetId } from '@shared/beatmap-set-id'
 import ImportMetadataModal, { applyMetadataImport } from './ImportMetadataModal'
 import MetadataEditor from './MetadataEditor'
 import { modalClassNames, modalOverlayProps, modalTransitionProps } from '../../theme/modal'
@@ -101,6 +102,7 @@ const BeatmapWorkspace = forwardRef<BeatmapWorkspaceHandle, BeatmapWorkspaceProp
     const [isFeaturedArtist, setIsFeaturedArtist] = useState(false)
     const [featuredArtistContext, setFeaturedArtistContext] = useState(false)
     const [isOnOsuWebsite, setIsOnOsuWebsite] = useState(false)
+    const [osuSetStatusEntry, setOsuSetStatusEntry] = useState<BeatmapSetStatusEntry | null>(null)
     const [mismatched, setMismatched] = useState(false)
     const [mismatchedFields, setMismatchedFields] = useState<(keyof BeatmapMetadata)[]>([])
     const [metadataMismatchDetails, setMetadataMismatchDetails] = useState<
@@ -141,6 +143,7 @@ const BeatmapWorkspace = forwardRef<BeatmapWorkspaceHandle, BeatmapWorkspaceProp
     const loadSelectedMetadata = useCallback(async (): Promise<void> => {
       setImportedWebBeatmapSetId(null)
       setIsOnOsuWebsite(false)
+      setOsuSetStatusEntry(null)
       setStatus(null)
       setLoadingMeta(true)
       try {
@@ -156,6 +159,17 @@ const BeatmapWorkspace = forwardRef<BeatmapWorkspaceHandle, BeatmapWorkspaceProp
           getFeaturedArtistContext(loaded.isFeaturedArtist, loaded.metadata.tags)
         )
         setIsOnOsuWebsite(loaded.isOnOsuWebsite)
+        const setId = resolveBeatmapSetId(selected)
+        setOsuSetStatusEntry(
+          setId != null
+            ? {
+                beatmapSetId: setId,
+                online: loaded.isOnOsuWebsite,
+                status: loaded.osuSetStatus,
+                isFeaturedArtist: loaded.isFeaturedArtist
+              }
+            : null
+        )
         setMismatched(loaded.mismatched)
         setMismatchedFields(loaded.mismatchedFields)
         setMetadataMismatchDetails(loaded.metadataMismatchDetails)
@@ -166,7 +180,7 @@ const BeatmapWorkspace = forwardRef<BeatmapWorkspaceHandle, BeatmapWorkspaceProp
       } finally {
         setLoadingMeta(false)
       }
-    }, [selected.folderPath])
+    }, [selected.folderPath, selected.beatmapSetId, selected.folderName])
 
     useEffect(() => {
       void loadSelectedMetadata()
@@ -413,6 +427,7 @@ const BeatmapWorkspace = forwardRef<BeatmapWorkspaceHandle, BeatmapWorkspaceProp
           isFeaturedArtist={isFeaturedArtist}
           featuredArtistContext={featuredArtistContext}
           isOnOsuWebsite={isOnOsuWebsite}
+          osuSetStatusEntry={osuSetStatusEntry}
           mismatched={mismatched}
           metadataMismatchDetails={metadataMismatchDetails}
           comboColourMismatchDetails={comboColourMismatchDetails}

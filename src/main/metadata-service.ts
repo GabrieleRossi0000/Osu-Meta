@@ -114,7 +114,7 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
   const osuInfo =
     resolvedSetId != null
       ? await inspectOsuBeatmapSet(resolvedSetId)
-      : { online: false, isFeaturedArtist: false }
+      : { online: false, isFeaturedArtist: false, status: null }
 
   return {
     metadata,
@@ -133,7 +133,8 @@ export async function loadSetMetadata(folderPath: string): Promise<LoadedMetadat
     difficulties,
     creator,
     isFeaturedArtist: osuInfo.isFeaturedArtist,
-    isOnOsuWebsite: osuInfo.online
+    isOnOsuWebsite: osuInfo.online,
+    osuSetStatus: osuInfo.status
   }
 }
 

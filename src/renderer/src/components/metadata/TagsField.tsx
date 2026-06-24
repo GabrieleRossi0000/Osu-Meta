@@ -11,7 +11,7 @@ import {
 } from '@mantine/core'
 import { IconAlertTriangle, IconX } from '@tabler/icons-react'
 import { useDebouncedValue } from '@mantine/hooks'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   getSuggestedFeaturedArtistTags,
   getSuggestedMappersGuildQuestTags,
@@ -49,6 +49,7 @@ interface TagsFieldProps {
   folderName: string
   source: string
   beatmapSetId: number | null
+  isOnOsuWebsite: boolean
   isFeaturedArtist: boolean
   /** True when osu! marks the set FA or the loaded map already had FA tags. */
   featuredArtistContext: boolean
@@ -97,6 +98,7 @@ export default function TagsField({
   folderName,
   source,
   beatmapSetId,
+  isOnOsuWebsite,
   isFeaturedArtist,
   featuredArtistContext,
   tagSectionsExpanded: _tagSectionsExpanded,
@@ -118,6 +120,9 @@ export default function TagsField({
   const [hostAlternateLoading, setHostAlternateLoading] = useState(false)
   const [rankedTagSource, setRankedTagSource] = useState<RankedGenreLanguageSuggestion | null>(null)
   const [rankedTagsLoading, setRankedTagsLoading] = useState(false)
+  const [metadataIsFeaturedArtist, setMetadataIsFeaturedArtist] = useState(false)
+  const rankedLookupGenerationRef = useRef(0)
+  const lastFetchedRankedLookupKeyRef = useRef<string | null>(null)
 
   const canLookupRankedTags = canLookupRankedGenreLanguageTags(
     artistUnicode,
@@ -126,22 +131,29 @@ export default function TagsField({
     title
   )
 
-  const [debouncedRankedLookup] = useDebouncedValue(
-    { artistUnicode, artist, titleUnicode, title, canLookupRankedTags },
-    500
+  const rankedLookupKey = useMemo(
+    () => [artistUnicode, artist, titleUnicode, title].join('\u001f'),
+    [artistUnicode, artist, titleUnicode, title]
   )
+  const [debouncedRankedLookupKey] = useDebouncedValue(rankedLookupKey, 500)
 
   const [tagsFieldFocused, setTagsFieldFocused] = useState(false)
   const [tagSuggestionsOpen, setTagSuggestionsOpen] = useState(false)
-  const [activeTagCategory, setActiveTagCategory] = useState<keyof TagSectionsExpanded>('featured')
+  const [activeTagCategory, setActiveTagCategory] = useState<keyof TagSectionsExpanded>(
+    isOnOsuWebsite ? 'featured' : 'language'
+  )
 
-  const shouldFetchRemoteSuggestions = tagSuggestionsOpen || tagsFieldFocused
+  const suggestionsPanelActive = tagSuggestionsOpen || tagsFieldFocused
+  const shouldFetchGenreLanguageSuggestions =
+    canLookupRankedTags && (isOnOsuWebsite ? suggestionsPanelActive : true)
+  const shouldFetchSetBoundSuggestions = isOnOsuWebsite && suggestionsPanelActive
 
   useEffect(() => {
     setTagSuggestionsOpen(false)
-    setActiveTagCategory('featured')
+    setActiveTagCategory(isOnOsuWebsite ? 'featured' : 'language')
     setTagsFieldFocused(false)
-  }, [folderPath])
+    lastFetchedRankedLookupKeyRef.current = null
+  }, [folderPath, isOnOsuWebsite])
 
   useEffect(() => {
     void window.api.isArtistTitleTagWarningIgnored(folderPath).then(setArtistTitleTagsIgnored)
@@ -149,7 +161,7 @@ export default function TagsField({
   }, [folderPath])
 
   useEffect(() => {
-    if (!shouldFetchRemoteSuggestions) {
+    if (!shouldFetchSetBoundSuggestions) {
       setApiGuestSuggestions([])
       setApiGuestLoading(false)
       return
@@ -179,10 +191,10 @@ export default function TagsField({
     return () => {
       cancelled = true
     }
-  }, [beatmapSetId, shouldFetchRemoteSuggestions])
+  }, [beatmapSetId, shouldFetchSetBoundSuggestions])
 
   useEffect(() => {
-    if (!shouldFetchRemoteSuggestions) {
+    if (!shouldFetchSetBoundSuggestions) {
       setHostAlternateSuggestions([])
       setHostAlternateLoading(false)
       return
@@ -212,50 +224,71 @@ export default function TagsField({
     return () => {
       cancelled = true
     }
-  }, [beatmapSetId, shouldFetchRemoteSuggestions])
+  }, [beatmapSetId, shouldFetchSetBoundSuggestions])
 
   useEffect(() => {
-    if (!shouldFetchRemoteSuggestions) {
+    if (!shouldFetchGenreLanguageSuggestions) {
       setRankedTagSource(null)
+      setMetadataIsFeaturedArtist(false)
       setRankedTagsLoading(false)
+      lastFetchedRankedLookupKeyRef.current = null
       return
     }
 
-    if (!debouncedRankedLookup.canLookupRankedTags) {
+    if (!canLookupRankedTags) {
       setRankedTagSource(null)
+      setMetadataIsFeaturedArtist(false)
       setRankedTagsLoading(false)
+      lastFetchedRankedLookupKeyRef.current = null
       return
     }
 
-    let cancelled = false
+    if (lastFetchedRankedLookupKeyRef.current === debouncedRankedLookupKey) {
+      return
+    }
+
+    lastFetchedRankedLookupKeyRef.current = debouncedRankedLookupKey
+
+    const generation = ++rankedLookupGenerationRef.current
     setRankedTagsLoading(true)
 
     void window.api
       .suggestRankedGenreLanguage({
-        artistUnicode: debouncedRankedLookup.artistUnicode,
-        artist: debouncedRankedLookup.artist,
-        titleUnicode: debouncedRankedLookup.titleUnicode,
-        title: debouncedRankedLookup.title,
-        beatmapSetId
+        artistUnicode,
+        artist,
+        titleUnicode,
+        title,
+        beatmapSetId: isOnOsuWebsite ? beatmapSetId : null
       })
       .then((result) => {
-        if (cancelled) return
+        if (rankedLookupGenerationRef.current !== generation) return
         setRankedTagSource(result.kind === 'found' ? result.suggestion : null)
+        setMetadataIsFeaturedArtist(
+          result.kind === 'found' || result.kind === 'not_found'
+            ? (result.isFeaturedArtist ?? false)
+            : false
+        )
       })
       .catch(() => {
-        if (!cancelled) setRankedTagSource(null)
+        if (rankedLookupGenerationRef.current !== generation) return
+        setRankedTagSource(null)
+        setMetadataIsFeaturedArtist(false)
       })
       .finally(() => {
-        if (!cancelled) setRankedTagsLoading(false)
+        if (rankedLookupGenerationRef.current === generation) {
+          setRankedTagsLoading(false)
+        }
       })
-
-    return () => {
-      cancelled = true
-    }
   }, [
-    shouldFetchRemoteSuggestions,
-    debouncedRankedLookup,
-    beatmapSetId
+    shouldFetchGenreLanguageSuggestions,
+    debouncedRankedLookupKey,
+    canLookupRankedTags,
+    artistUnicode,
+    artist,
+    titleUnicode,
+    title,
+    beatmapSetId,
+    isOnOsuWebsite
   ])
 
   useEffect(() => {
@@ -289,7 +322,10 @@ export default function TagsField({
   )
 
   const suggestFeaturedArtistTags =
-    isFeaturedArtist || featuredArtistContext || hasPartialFeaturedArtistTags(tags)
+    isFeaturedArtist ||
+    metadataIsFeaturedArtist ||
+    featuredArtistContext ||
+    hasPartialFeaturedArtistTags(tags)
 
   const featuredArtistTags = useMemo(
     () => getSuggestedFeaturedArtistTags(tags, suggestFeaturedArtistTags),
@@ -321,13 +357,13 @@ export default function TagsField({
   const visibleGenreTags = rankedTagSuggestions.genre
 
   const showFeaturedSection = suggestFeaturedArtistTags
-  const showSourceSection = hasMatchableTagHints(hintContext)
+  const showSourceSection = isOnOsuWebsite && hasMatchableTagHints(hintContext)
   const showLanguageSection = canLookupRankedTags
   const showGenreSection = canLookupRankedTags
-  const showGuestSection = beatmapSetId != null && beatmapSetId > 0
-  const showCollabSection = beatmapSetId != null && beatmapSetId > 0
+  const showGuestSection = isOnOsuWebsite && beatmapSetId != null && beatmapSetId > 0
+  const showCollabSection = isOnOsuWebsite && beatmapSetId != null && beatmapSetId > 0
   const showGuildSection = suggestFeaturedArtistTags
-  const showWrongTagsSection = wrongTagSuggestions.length > 0
+  const showWrongTagsSection = isOnOsuWebsite && wrongTagSuggestions.length > 0
 
   const artistTitleTagOccurrences = useMemo(
     () => getArtistTitleTagOccurrences(tags, artistUnicode, artist, titleUnicode, title, source),
@@ -622,6 +658,12 @@ export default function TagsField({
         onPanelOpenChange={setTagSuggestionsOpen}
         activeKey={activeTagCategory}
         onActiveKeyChange={setActiveTagCategory}
+        disabled={!canLookupRankedTags}
+        hint={
+          !isOnOsuWebsite && canLookupRankedTags
+            ? 'Guest, alias, and source suggestions unlock after the map is submitted.'
+            : undefined
+        }
       />
 
       {showArtistTitleTagUi && (

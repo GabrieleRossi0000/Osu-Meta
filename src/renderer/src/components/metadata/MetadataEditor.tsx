@@ -26,11 +26,13 @@ import { useMemo, useState } from 'react'
 import { beatmapSetPageUrl, resolveBeatmapSetId } from '@shared/beatmap-set-id'
 import { formatDiscussionMetadataExport } from '@shared/discussion-metadata-export'
 import { getMetadataValidationIssues } from '@shared/metadata-validation'
+import { getRomanizationFieldSuggestions } from '@shared/metadata-romanization-suggestions'
 import { getRomanizedFieldLocks, isAlreadyRomanized } from '@shared/romanization'
 import type {
   BeatmapComboColour,
   BeatmapDifficultySummary,
   BeatmapMetadata,
+  BeatmapSetStatusEntry,
   BeatmapSetSummary,
   ComboColourMismatchGroup,
   MetadataFieldMismatchDetail,
@@ -38,11 +40,15 @@ import type {
 } from '@shared/types'
 import { beatmapsetSupportsComboColours, gameModesFromModeInts } from '@shared/osu-game-mode'
 import { parseDisplayName } from '../../utils/parseDisplayName'
+import ApplyRankedMetadataModal from './ApplyRankedMetadataModal'
+import BeatmapSetStatusBadge from './BeatmapSetStatusBadge'
 import DifficultyList from './DifficultyList'
 import TagsField from './TagsField'
 import SourceField from './SourceField'
 import ComboColoursEditor from './ComboColoursEditor'
+import RomanizationFieldSuggestionRow from './RomanizationFieldSuggestionRow'
 import SetMismatchAlert from './SetMismatchAlert'
+import { useRankedMetadataMatch } from './useRankedMetadataMatch'
 
 function formatLastModified(ms: number): string {
   return new Date(ms).toLocaleString(undefined, {
@@ -59,6 +65,7 @@ interface MetadataEditorProps {
   isFeaturedArtist: boolean
   featuredArtistContext: boolean
   isOnOsuWebsite: boolean
+  osuSetStatusEntry: BeatmapSetStatusEntry | null
   mismatched: boolean
   metadataMismatchDetails: MetadataFieldMismatchDetail[]
   comboColourMismatchDetails: ComboColourMismatchGroup[]
@@ -88,6 +95,7 @@ export default function MetadataEditor({
   isFeaturedArtist,
   featuredArtistContext,
   isOnOsuWebsite,
+  osuSetStatusEntry,
   mismatched,
   metadataMismatchDetails,
   comboColourMismatchDetails,
@@ -113,6 +121,7 @@ export default function MetadataEditor({
   const [discussionCopied, setDiscussionCopied] = useState(false)
   const [importLinkCopied, setImportLinkCopied] = useState(false)
   const [setIdCopied, setSetIdCopied] = useState(false)
+  const [showApplyRankedModal, setShowApplyRankedModal] = useState(false)
   const { artist: lockArtistRomanized, title: lockTitleRomanized } = useMemo(
     () => getRomanizedFieldLocks(metadata),
     [metadata.artistUnicode, metadata.titleUnicode]
@@ -125,6 +134,25 @@ export default function MetadataEditor({
     metadata.titleUnicode.trim() || metadata.title.trim() || fallback.title
   const displaySource = metadata.source.trim()
   const beatmapSetId = resolveBeatmapSetId(selected)
+  const { match: rankedMetadataMatch, loading: rankedMetadataLoading } = useRankedMetadataMatch({
+    metadata,
+    beatmapSetId,
+    isOnOsuWebsite,
+    folderPath: selected.folderPath
+  })
+  const romanizationSuggestions = useMemo(() => {
+    if (!rankedMetadataMatch) return []
+    return getRomanizationFieldSuggestions(metadata, rankedMetadataMatch)
+  }, [metadata, rankedMetadataMatch])
+  const romanizationSuggestionByField = useMemo(() => {
+    const map = new Map(romanizationSuggestions.map((suggestion) => [suggestion.field, suggestion]))
+    return (field: (typeof romanizationSuggestions)[number]['field']) => map.get(field) ?? null
+  }, [romanizationSuggestions])
+  const romanizationFromOwnSet =
+    isOnOsuWebsite &&
+    beatmapSetId != null &&
+    beatmapSetId > 0 &&
+    rankedMetadataMatch?.beatmapSetId === beatmapSetId
   const hasBg = Boolean(selected.backgroundImageUrl)
   const supportsComboColours = useMemo(
     () => beatmapsetSupportsComboColours(gameModesFromModeInts(difficulties.map((d) => d.mode))),
@@ -135,9 +163,12 @@ export default function MetadataEditor({
     () =>
       getMetadataValidationIssues(metadata, {
         mismatched: false,
-        comboColoursMismatched: false
+        comboColoursMismatched: false,
+        romanizationLookupPending: rankedMetadataLoading,
+        romanizationSuggestionForArtist: romanizationSuggestionByField('artist') != null,
+        romanizationSuggestionForTitle: romanizationSuggestionByField('title') != null
       }),
-    [metadata]
+    [metadata, rankedMetadataLoading, romanizationSuggestions]
   )
 
   const showMetadataMismatch = mismatched
@@ -276,6 +307,11 @@ export default function MetadataEditor({
                 FA
               </Badge>
             )}
+            <BeatmapSetStatusBadge
+              statusEntry={osuSetStatusEntry}
+              beatmapSetId={beatmapSetId}
+              size="sm"
+            />
           </Group>
           {displaySource ? (
             <Text
@@ -349,7 +385,24 @@ export default function MetadataEditor({
           <Button variant="light" leftSection={<IconCopy size={16} />} onClick={onOpenImportModal}>
             Import from mapset
           </Button>
+          {rankedMetadataMatch ? (
+            <Button variant="light" onClick={() => setShowApplyRankedModal(true)}>
+              Apply from ranked reference
+            </Button>
+          ) : null}
         </Group>
+
+        {rankedMetadataMatch ? (
+          <ApplyRankedMetadataModal
+            opened={showApplyRankedModal}
+            onClose={() => setShowApplyRankedModal(false)}
+            metadata={metadata}
+            match={rankedMetadataMatch}
+            beatmapSetId={beatmapSetId}
+            isOnOsuWebsite={isOnOsuWebsite}
+            onApply={onChange}
+          />
+        ) : null}
 
         {importedWebBeatmapSetId != null ? (
           <Alert
@@ -428,6 +481,13 @@ export default function MetadataEditor({
             <Text size="xs" c="dimmed" mb={4}>
               Artist name
             </Text>
+            {romanizationSuggestionByField('artistUnicode') ? (
+              <RomanizationFieldSuggestionRow
+                suggestion={romanizationSuggestionByField('artistUnicode')!}
+                onApply={update}
+                fromOwnSet={romanizationFromOwnSet}
+              />
+            ) : null}
             <TextInput
               value={metadata.artistUnicode}
               onChange={(e) => update('artistUnicode', e.currentTarget.value)}
@@ -438,6 +498,13 @@ export default function MetadataEditor({
             <Text size="xs" c="dimmed" mb={4}>
               Romanized artist name
             </Text>
+            {romanizationSuggestionByField('artist') ? (
+              <RomanizationFieldSuggestionRow
+                suggestion={romanizationSuggestionByField('artist')!}
+                onApply={update}
+                fromOwnSet={romanizationFromOwnSet}
+              />
+            ) : null}
             <TextInput
               value={metadata.artist}
               onChange={(e) => update('artist', e.currentTarget.value)}
@@ -449,6 +516,13 @@ export default function MetadataEditor({
             <Text size="xs" c="dimmed" mb={4}>
               Song title
             </Text>
+            {romanizationSuggestionByField('titleUnicode') ? (
+              <RomanizationFieldSuggestionRow
+                suggestion={romanizationSuggestionByField('titleUnicode')!}
+                onApply={update}
+                fromOwnSet={romanizationFromOwnSet}
+              />
+            ) : null}
             <TextInput
               value={metadata.titleUnicode}
               onChange={(e) => update('titleUnicode', e.currentTarget.value)}
@@ -459,6 +533,13 @@ export default function MetadataEditor({
             <Text size="xs" c="dimmed" mb={4}>
               Romanized song title
             </Text>
+            {romanizationSuggestionByField('title') ? (
+              <RomanizationFieldSuggestionRow
+                suggestion={romanizationSuggestionByField('title')!}
+                onApply={update}
+                fromOwnSet={romanizationFromOwnSet}
+              />
+            ) : null}
             <TextInput
               value={metadata.title}
               onChange={(e) => update('title', e.currentTarget.value)}
@@ -469,6 +550,7 @@ export default function MetadataEditor({
           <SourceField
             selected={selected}
             metadata={metadata}
+            isOnOsuWebsite={isOnOsuWebsite}
             onChange={(source) => update('source', source)}
           />
 
@@ -482,6 +564,7 @@ export default function MetadataEditor({
             folderName={selected.folderName}
             source={metadata.source}
             beatmapSetId={beatmapSetId}
+            isOnOsuWebsite={isOnOsuWebsite}
             isFeaturedArtist={isFeaturedArtist}
             featuredArtistContext={featuredArtistContext}
             tagSectionsExpanded={tagSectionsExpanded}

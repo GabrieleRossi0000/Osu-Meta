@@ -18,6 +18,7 @@ export interface BeatmapSetFlags {
   needsTags: boolean
   mismatchedMetadata: boolean
   faMissingGuild: boolean
+  hasValidationIssues: boolean
 }
 
 export interface BeatmapSetSummary {
@@ -84,13 +85,24 @@ export interface LoadedMetadata {
   creator: string
   isFeaturedArtist: boolean
   isOnOsuWebsite: boolean
+  /** osu! beatmapset status when on the website (pending, ranked, etc.). */
+  osuSetStatus: string | null
+}
+
+export interface BeatmapSetStatusEntry {
+  beatmapSetId: number
+  online: boolean
+  status: string | null
+  isFeaturedArtist: boolean
 }
 
 export interface RankedSourceSuggestion {
   source: string
   beatmapSetId: number
   artist: string
+  artistUnicode: string
   title: string
+  titleUnicode: string
   creator: string
   status: string
 }
@@ -104,7 +116,9 @@ export type RankedSourceSuggestionResult =
 export interface RankedGenreLanguageSuggestion {
   beatmapSetId: number
   artist: string
+  artistUnicode: string
   title: string
+  titleUnicode: string
   creator: string
   rankedDate: string | null
   rankedTags: string
@@ -115,8 +129,8 @@ export interface RankedGenreLanguageSuggestion {
 }
 
 export type RankedGenreLanguageResult =
-  | { kind: 'found'; suggestion: RankedGenreLanguageSuggestion }
-  | { kind: 'not_found' }
+  | { kind: 'found'; suggestion: RankedGenreLanguageSuggestion; isFeaturedArtist: boolean }
+  | { kind: 'not_found'; isFeaturedArtist: boolean }
   | { kind: 'unavailable'; message: string }
 
 export interface SuggestRankedGenreLanguageRequest {
@@ -174,6 +188,7 @@ export interface AppSettings {
   sidebarWidth: number
   featuredArtistCache: Record<string, boolean>
   beatmapSetOnlineCache: Record<string, boolean>
+  beatmapSetStatusCache: Record<string, string>
   sourceSuggestionCache: Record<string, RankedSourceSuggestionResult>
   genreLanguageSuggestionCache: Record<string, RankedGenreLanguageResult>
 }
@@ -223,6 +238,24 @@ export interface SuggestRankedSourceRequest {
   /** When true, bypass cached negative results and re-query osu!. */
   refresh?: boolean
 }
+
+export interface RankedMetadataMatch {
+  beatmapSetId: number
+  artist: string
+  artistUnicode: string
+  title: string
+  titleUnicode: string
+  source: string
+  creator: string
+  status: string
+}
+
+export type RankedMetadataMatchResult =
+  | { kind: 'found'; match: RankedMetadataMatch }
+  | { kind: 'not_found' }
+  | { kind: 'unavailable'; message: string }
+
+export type SuggestRankedMetadataMatchRequest = SuggestRankedSourceRequest
 
 export interface OsuBeatmapsetSearchHit {
   beatmapSetId: number

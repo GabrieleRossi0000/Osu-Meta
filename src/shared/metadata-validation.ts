@@ -18,7 +18,16 @@ const FULL_METADATA_IN_TAGS_MESSAGES = {
 
 export function getMetadataValidationIssues(
   metadata: BeatmapMetadata,
-  options: { mismatched: boolean; comboColoursMismatched?: boolean }
+  options: {
+    mismatched: boolean
+    comboColoursMismatched?: boolean
+    /** When true, ranked romanization lookup is still in progress — defer empty-romanized warnings. */
+    romanizationLookupPending?: boolean
+    /** When true, a ranked-map pill can fill the empty romanized artist field. */
+    romanizationSuggestionForArtist?: boolean
+    /** When true, a ranked-map pill can fill the empty romanized title field. */
+    romanizationSuggestionForTitle?: boolean
+  }
 ): MetadataValidationIssue[] {
   const issues: MetadataValidationIssue[] = []
 
@@ -54,7 +63,11 @@ export function getMetadataValidationIssues(
   }
 
   if (metadata.artistUnicode.trim() && !isAlreadyRomanized(metadata.artistUnicode)) {
-    if (!metadata.artist.trim()) {
+    if (
+      !metadata.artist.trim() &&
+      !options.romanizationLookupPending &&
+      !options.romanizationSuggestionForArtist
+    ) {
       issues.push({
         id: 'artist-romanized-empty',
         message: 'Romanized artist name is empty but artist name uses non-Latin characters.',
@@ -64,7 +77,11 @@ export function getMetadataValidationIssues(
   }
 
   if (metadata.titleUnicode.trim() && !isAlreadyRomanized(metadata.titleUnicode)) {
-    if (!metadata.title.trim()) {
+    if (
+      !metadata.title.trim() &&
+      !options.romanizationLookupPending &&
+      !options.romanizationSuggestionForTitle
+    ) {
       issues.push({
         id: 'title-romanized-empty',
         message: 'Romanized song title is empty but song title uses non-Latin characters.',

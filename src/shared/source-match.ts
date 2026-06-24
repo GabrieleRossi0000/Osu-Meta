@@ -18,7 +18,7 @@ export interface SourceMatchCandidate {
   rankedDate?: string
 }
 
-const RANKED_STATUSES = new Set(['ranked', 'approved'])
+const RANKED_STATUSES = new Set(['ranked', 'approved', 'qualified'])
 
 export function normalizeMetadataText(value: string): string {
   return value
@@ -37,9 +37,9 @@ function pickTitle(query: SourceMatchQuery): string {
   return query.titleUnicode.trim() || query.title.trim()
 }
 
-/** Parenthesized osu! edition markers, e.g. (Game Ver.), (Nightcore Mix). */
+/** Parenthesized osu! edition markers, e.g. (Game Ver.), (TV Size), (Nightcore & Sped Up Ver.). */
 const TITLE_VERSION_MARKER_PATTERN =
-  /\s*\([^)]*(?:\bVer\.?|\bMix\b|\bVersion\b|\bEdit\b|\bBootleg\b|Sped\s*Up|Nightcore|Hardstyle|TV\s*Size|\bCut\b|\bShort\b|\bFull\b)[^)]*\)/gi
+  /\s*\([^)]*(?:\bVer\.?|\bMix\b|\bVersion\b|\bEdit\b|\bBootleg\b|\bGame\b|Sped\s*Up|Nightcore|Hardstyle|TV\s*Size|\bCut\b|\bShort\b|\bFull\b)[^)]*\)/gi
 
 export function stripTitleVersionMarkers(title: string): string {
   if (!title.trim()) return title
@@ -54,6 +54,26 @@ export function stripTitleVersionMarkers(title: string): string {
 export function titleHasVersionMarkers(title: string): boolean {
   const stripped = stripTitleVersionMarkers(title)
   return stripped.length > 0 && normalizeMetadataText(stripped) !== normalizeMetadataText(title)
+}
+
+/** Title variants to query osu! with: full title and the same title without edition markers. */
+export function uniqueMetadataSearchTitles(title: string): string[] {
+  const trimmed = title.trim()
+  if (!trimmed) return []
+
+  const variants: string[] = []
+  const seen = new Set<string>()
+
+  const add = (value: string): void => {
+    const normalized = normalizeMetadataText(value)
+    if (!normalized || seen.has(normalized)) return
+    seen.add(normalized)
+    variants.push(value)
+  }
+
+  add(trimmed)
+  add(stripTitleVersionMarkers(trimmed))
+  return variants
 }
 
 function titleValuesMatch(queryTitle: string, candidateTitleValues: string[]): boolean {
@@ -75,22 +95,53 @@ function titleValuesMatch(queryTitle: string, candidateTitleValues: string[]): b
   })
 }
 
+function queryArtistValues(query: SourceMatchQuery): string[] {
+  const seen = new Set<string>()
+  const values: string[] = []
+
+  for (const value of [query.artistUnicode, query.artist]) {
+    const normalized = normalizeMetadataText(value.trim())
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    values.push(normalized)
+  }
+
+  return values
+}
+
+function candidateArtistValues(
+  candidate: Pick<SourceMatchCandidate, 'artist' | 'artistUnicode'>
+): string[] {
+  const seen = new Set<string>()
+  const values: string[] = []
+
+  for (const value of [candidate.artistUnicode, candidate.artist]) {
+    if (!value?.trim()) continue
+    const normalized = normalizeMetadataText(value)
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    values.push(normalized)
+  }
+
+  return values
+}
+
 export function metadataMatchesCandidate(
   query: SourceMatchQuery,
   candidate: Pick<SourceMatchCandidate, 'artist' | 'artistUnicode' | 'title' | 'titleUnicode'>
 ): boolean {
-  const queryArtist = normalizeMetadataText(pickArtist(query))
+  const queryArtists = queryArtistValues(query)
   const queryTitleRaw = pickTitle(query)
-  if (!queryArtist || !normalizeMetadataText(queryTitleRaw)) return false
+  if (queryArtists.length === 0 || !normalizeMetadataText(queryTitleRaw)) return false
 
-  const artistValues = [candidate.artistUnicode, candidate.artist]
-    .filter(Boolean)
-    .map((value) => normalizeMetadataText(value!))
+  const artistValues = candidateArtistValues(candidate)
   const candidateTitleValues = [candidate.titleUnicode, candidate.title].filter(
     (value): value is string => Boolean(value?.trim())
   )
 
-  const artistMatch = artistValues.some((value) => value === queryArtist)
+  const artistMatch = queryArtists.some((queryArtist) =>
+    artistValues.some((candidateArtist) => candidateArtist === queryArtist)
+  )
   const titleMatch = titleValuesMatch(queryTitleRaw, candidateTitleValues)
   return artistMatch && titleMatch
 }
@@ -126,6 +177,31 @@ export function pickBestRankedSource(
 
   rankedWithSource.sort((a, b) => rankedDateMs(b) - rankedDateMs(a))
   return rankedWithSource[0] ?? null
+}
+
+export function pickLatestRankedMetadataMatch(
+  query: SourceMatchQuery,
+  candidates: SourceMatchCandidate[]
+): SourceMatchCandidate | null {
+  const matches = candidates.filter(
+    (candidate) => metadataMatchesCandidate(query, candidate) && isRankedStatus(candidate.status)
+  )
+  if (matches.length === 0) return null
+
+  return [...matches].sort((a, b) => rankedDateMs(b) - rankedDateMs(a))[0] ?? null
+}
+
+export function dedupeSourceMatchCandidates(
+  candidates: SourceMatchCandidate[]
+): SourceMatchCandidate[] {
+  const seen = new Map<number, SourceMatchCandidate>()
+  for (const candidate of candidates) {
+    const existing = seen.get(candidate.beatmapSetId)
+    if (!existing || rankedDateMs(candidate) > rankedDateMs(existing)) {
+      seen.set(candidate.beatmapSetId, candidate)
+    }
+  }
+  return [...seen.values()]
 }
 
 export function buildSourceSuggestionCacheKey(query: SourceMatchQuery): string {
