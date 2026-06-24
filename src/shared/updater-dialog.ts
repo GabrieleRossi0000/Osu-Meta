@@ -11,3 +11,10 @@ export type UpdaterDialogPayload =
   | { kind: 'install-failed'; message: string }
 
 export type UpdaterDialogAction = 'install' | 'later' | 'dismiss' | 'open-releases'
+
+export type UpdaterInstallPhase = 'downloading' | 'installing'
+
+export interface UpdaterInstallingPayload {
+  latestVersion: string
+  phase: UpdaterInstallPhase
+}

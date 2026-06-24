@@ -16,10 +16,15 @@ import {
   IconExternalLink
 } from '@tabler/icons-react'
 import { useCallback, useEffect, useState } from 'react'
-import type { UpdaterDialogAction, UpdaterDialogPayload } from '@shared/updater-dialog'
+import type {
+  UpdaterDialogAction,
+  UpdaterDialogPayload,
+  UpdaterInstallPhase
+} from '@shared/updater-dialog'
 import { modalClassNames, modalOverlayProps, modalTransitionProps } from '../../theme/modal'
 
-function dialogTitle(payload: UpdaterDialogPayload | null): string {
+function dialogTitle(payload: UpdaterDialogPayload | null, installing: boolean): string {
+  if (installing) return 'Updating Osu Meta'
   if (!payload) return 'Updates'
   switch (payload.kind) {
     case 'available':
@@ -35,11 +40,29 @@ function dialogTitle(payload: UpdaterDialogPayload | null): string {
   }
 }
 
+function installPhaseLabel(phase: UpdaterInstallPhase): string {
+  return phase === 'downloading' ? 'Downloading update…' : 'Installing update…'
+}
+
+function installPhaseDetail(phase: UpdaterInstallPhase): string {
+  return phase === 'downloading'
+    ? 'Please wait while the installer is downloaded from GitHub.'
+    : 'Osu Meta will close briefly, then reopen automatically when installation finishes.'
+}
+
 export default function UpdateModal(): JSX.Element {
   const [dialog, setDialog] = useState<UpdaterDialogPayload | null>(null)
   const [installing, setInstalling] = useState(false)
+  const [installPhase, setInstallPhase] = useState<UpdaterInstallPhase>('downloading')
 
   const respond = useCallback((action: UpdaterDialogAction): void => {
+    if (action === 'install') {
+      setInstalling(true)
+      setInstallPhase('downloading')
+      void window.api.respondToUpdaterDialog(action)
+      return
+    }
+
     setDialog(null)
     setInstalling(false)
     void window.api.respondToUpdaterDialog(action)
@@ -50,8 +73,9 @@ export default function UpdateModal(): JSX.Element {
       setInstalling(false)
       setDialog(payload)
     })
-    const unsubInstalling = window.api.onUpdaterInstalling(() => {
+    const unsubInstalling = window.api.onUpdaterInstalling((payload) => {
       setInstalling(true)
+      setInstallPhase(payload.phase)
     })
     return () => {
       unsubDialog()
@@ -59,8 +83,8 @@ export default function UpdateModal(): JSX.Element {
     }
   }, [])
 
-  const opened = dialog !== null
-  const closeOnClickOutside = dialog?.kind !== 'available' || !installing
+  const opened = dialog !== null || installing
+  const showAvailable = dialog?.kind === 'available'
 
   return (
     <Modal
@@ -70,17 +94,36 @@ export default function UpdateModal(): JSX.Element {
         if (dialog?.kind === 'available') respond('later')
         else respond('dismiss')
       }}
-      title={dialogTitle(dialog)}
+      title={dialogTitle(dialog, installing)}
       size="sm"
       centered
-      closeOnClickOutside={closeOnClickOutside}
+      closeOnClickOutside={!installing}
       closeOnEscape={!installing}
       withCloseButton={!installing}
       classNames={modalClassNames}
       overlayProps={modalOverlayProps}
       transitionProps={modalTransitionProps}
     >
-      {dialog ? (
+      {installing && showAvailable ? (
+        <Stack gap="lg" align="center" py="md" className="mv-modal-stagger mv-update-modal">
+          <Loader size={36} type="dots" />
+          <Stack gap={6} align="center">
+            <Text size="sm" fw={600}>
+              {installPhaseLabel(installPhase)}
+            </Text>
+            <Text size="sm" c="dimmed" ta="center" maw={320}>
+              {installPhaseDetail(installPhase)}
+            </Text>
+          </Stack>
+          {dialog ? (
+            <Badge size="lg" variant="light" color="teal">
+              v{dialog.latestVersion}
+            </Badge>
+          ) : null}
+        </Stack>
+      ) : null}
+
+      {dialog && !installing ? (
         <Stack gap="md" className="mv-modal-stagger mv-update-modal">
           {dialog.kind === 'available' ? (
             <>
@@ -99,30 +142,13 @@ export default function UpdateModal(): JSX.Element {
                 A new version of Osu Meta is ready. Download and install now to update in place —
                 the app will restart when the installer finishes.
               </Text>
-              {installing ? (
-                <Alert
-                  variant="light"
-                  color="blue"
-                  icon={<Loader size={18} />}
-                  className="mv-update-modal-installing"
-                >
-                  <Text size="sm" fw={500}>
-                    Downloading installer…
-                  </Text>
-                  <Text size="xs" c="dimmed" mt={4}>
-                    This may take a moment. Osu Meta will close once installation starts.
-                  </Text>
-                </Alert>
-              ) : null}
               <Group justify="flex-end" gap="sm" className="mv-modal-actions">
-                <Button variant="default" onClick={() => respond('later')} disabled={installing}>
+                <Button variant="default" onClick={() => respond('later')}>
                   Later
                 </Button>
                 <Button
                   leftSection={<IconDownload size={16} />}
                   onClick={() => respond('install')}
-                  loading={installing}
-                  disabled={installing}
                 >
                   Update now
                 </Button>

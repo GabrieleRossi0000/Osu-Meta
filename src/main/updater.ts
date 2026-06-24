@@ -91,7 +91,7 @@ async function downloadSetupInstaller(url: string, destination: string): Promise
 
 async function runInstaller(installerPath: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(installerPath, ['/S'], {
+    const child = spawn(installerPath, ['/S', '--force-run'], {
       detached: true,
       stdio: 'ignore'
     })
@@ -101,6 +101,10 @@ async function runInstaller(installerPath: string): Promise<void> {
       resolve()
     })
   })
+}
+
+async function yieldToRenderer(): Promise<void> {
+  await new Promise<void>((resolve) => setImmediate(resolve))
 }
 
 async function handleDialogAction(action: UpdaterDialogAction): Promise<void> {
@@ -138,8 +142,11 @@ async function promptAndInstallUpdate(latestVersion: string, downloadUrl: string
   const installerPath = join(app.getPath('temp'), `OsuMeta-${latestVersion}-setup.exe`)
 
   try {
-    notifyUpdaterInstalling(latestVersion)
+    notifyUpdaterInstalling({ latestVersion, phase: 'downloading' })
+    await yieldToRenderer()
     await downloadSetupInstaller(downloadUrl, installerPath)
+    notifyUpdaterInstalling({ latestVersion, phase: 'installing' })
+    await yieldToRenderer()
     await runInstaller(installerPath)
     app.quit()
   } catch (error) {

@@ -23,7 +23,11 @@ import type {
   GuestMapperTagSuggestion,
   SetOwnerAlternateTagSuggestion
 } from '../shared/types'
-import type { UpdaterDialogAction, UpdaterDialogPayload } from '../shared/updater-dialog'
+import type {
+  UpdaterDialogAction,
+  UpdaterDialogPayload,
+  UpdaterInstallingPayload
+} from '../shared/updater-dialog'
 import type { WindowsResizeEdge } from '../shared/window-chrome'
 
 export interface TitleBarOverlayOptions {
@@ -112,8 +116,9 @@ const api = {
     ipcRenderer.on('updater:dialog', listener)
     return () => ipcRenderer.removeListener('updater:dialog', listener)
   },
-  onUpdaterInstalling: (callback: () => void): (() => void) => {
-    const listener = (): void => callback()
+  onUpdaterInstalling: (callback: (payload: UpdaterInstallingPayload) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: UpdaterInstallingPayload): void =>
+      callback(payload)
     ipcRenderer.on('updater:installing', listener)
     return () => ipcRenderer.removeListener('updater:installing', listener)
   },

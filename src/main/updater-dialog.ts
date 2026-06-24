@@ -1,5 +1,9 @@
 import { BrowserWindow } from 'electron'
-import type { UpdaterDialogAction, UpdaterDialogPayload } from '../shared/updater-dialog'
+import type {
+  UpdaterDialogAction,
+  UpdaterDialogPayload,
+  UpdaterInstallingPayload
+} from '../shared/updater-dialog'
 
 let pendingResolve: ((action: UpdaterDialogAction) => void) | null = null
 
@@ -25,8 +29,8 @@ export function resolveUpdaterDialog(action: UpdaterDialogAction): void {
   pendingResolve = null
 }
 
-export function notifyUpdaterInstalling(latestVersion: string): void {
-  getWindow()?.webContents.send('updater:installing', { latestVersion })
+export function notifyUpdaterInstalling(payload: UpdaterInstallingPayload): void {
+  getWindow()?.webContents.send('updater:installing', payload)
 }
 
 export function notifyUpdaterUpToDate(): void {

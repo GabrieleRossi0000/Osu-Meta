@@ -25,7 +25,11 @@ import type {
   GuestMapperTagSuggestion,
   SetOwnerAlternateTagSuggestion
 } from '@shared/types'
-import type { UpdaterDialogAction, UpdaterDialogPayload } from '@shared/updater-dialog'
+import type {
+  UpdaterDialogAction,
+  UpdaterDialogPayload,
+  UpdaterInstallingPayload
+} from '@shared/updater-dialog'
 import type { WindowsResizeEdge } from '@shared/window-chrome'
 
 interface WindowApi {
@@ -74,7 +78,7 @@ interface WindowApi {
   onRequestCloseConfirm: (callback: () => void) => () => void
   onUpdaterUpToDate: (callback: () => void) => () => void
   onUpdaterDialog: (callback: (payload: UpdaterDialogPayload) => void) => () => void
-  onUpdaterInstalling: (callback: () => void) => () => void
+  onUpdaterInstalling: (callback: (payload: UpdaterInstallingPayload) => void) => () => void
   respondToUpdaterDialog: (action: UpdaterDialogAction) => Promise<void>
   suggestGuestMapperApiTags: (beatmapSetId: number) => Promise<GuestMapperTagSuggestion[]>
   suggestHostAlternateNameTags: (

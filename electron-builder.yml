@@ -35,4 +35,5 @@ nsis:
   perMachine: false
   allowToChangeInstallationDirectory: true
   deleteAppDataOnUninstall: false
+  runAfterFinish: true
 npmRebuild: false
