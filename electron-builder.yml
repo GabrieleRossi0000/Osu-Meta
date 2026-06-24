@@ -1,6 +1,6 @@
 appId: com.osumeta.app
 productName: Osu Meta
-copyright: Copyright © ${year} leledorf
+copyright: Copyright © leledorf
 directories:
   buildResources: build
 extraResources:
