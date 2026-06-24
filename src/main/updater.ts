@@ -50,7 +50,7 @@ interface GithubRelease {
   assets: GithubReleaseAsset[]
 }
 
-async function fetchLatestRelease(): Promise<GithubRelease | null> {
+async function fetchLatestRelease(): Promise<GithubRelease> {
   const response = await fetch(
     `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
     {
@@ -61,7 +61,11 @@ async function fetchLatestRelease(): Promise<GithubRelease | null> {
     }
   )
 
-  if (response.status === 404) return null
+  if (response.status === 404) {
+    throw new Error(
+      `No releases found for ${GITHUB_OWNER}/${GITHUB_REPO}. Download updates from ${RELEASES_URL}`
+    )
+  }
   if (!response.ok) {
     throw new Error(`GitHub API returned ${response.status}`)
   }
@@ -156,10 +160,6 @@ async function runUpdateCheck(manual: boolean): Promise<void> {
 
   try {
     const release = await fetchLatestRelease()
-    if (!release) {
-      await notifyUpToDate(manual)
-      return
-    }
 
     const latestVersion = parseReleaseVersion(release.tag_name)
     const currentVersion = app.getVersion()
